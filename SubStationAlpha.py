@@ -46,8 +46,10 @@ class StyleList:
         self._styleDict[fields[self.__nameIndex].lower()] = fields
 
     def getStyleField(self, styleName: str, fieldName: str):
+        styleName = styleName.lower()
         field_index = self.format_lower.index(fieldName.lower())
-        return self._styleDict[styleName.lower()][field_index]
+        style_item = self._styleDict.get(styleName, self._styleDict.get('default', None))
+        return style_item[field_index] if style_item else None
 
     def getStyleString(self, item) -> str:
         return 'Style: ' + ','.join(self._styleDict[item])
@@ -194,7 +196,7 @@ class SubStationAlpha:
         """
         if path is None:
             path = self.filePath
-        if not os.access(path, os.W_OK):
+        if not os.access(os.path.dirname(path), os.W_OK):
             messagebox.showerror("错误", f"文件 {path} 无法写入。")
             return
 
@@ -227,14 +229,22 @@ class SubStationAlpha:
                 file.write(self.dialogueList.getDialogueString(i) + '\n')
                 i += 1
 
-    def gatherFonts(self) -> dict:
+    @staticmethod
+    def __addToDict(d: dict, key: str, num: int):
+        if key:
+            if key not in d:
+                d[key] = num
+            else:
+                d[key] += num
+
+    def gatherFonts(self) -> list:
         """
         搜集字幕中所有出现过的字体，以及每种字体覆盖的文字数量
-        :return: {fontname: count}
+        :return: [{fontname, count, isEmbed}, ...]
         """
-        fontUsedList = {}   # 出现过的所有字体的列表
+        fontUsedDict = {}   # 出现过的所有字体的列表
         for style in self.styleList:
-            fontUsedList[self.styleList.getStyleField(style, 'fontname')] = 0
+            fontUsedDict[self.styleList.getStyleField(style, 'fontname')] = 0
 
         inlineStyle_pattern = re.compile(r'\{.*?\}')    # 用于查找行内样式{}的内容
         inlineFont_pattern = re.compile(r'\\fn(.*?)[\\,\}]')    # 用于查找{}内的\fn内容并提取字体名
@@ -247,21 +257,19 @@ class SubStationAlpha:
             miter = inlineStyle_pattern.finditer(text)
             pos = 0    # 文字位置指针
             for m in miter:
-                if fontname not in fontUsedList:
-                    fontUsedList[fontname] = 0
-                fontUsedList[fontname] += m.start() - pos
+                self.__addToDict(fontUsedDict, fontname, m.start() - pos)
                 pos = m.end()
                 style_str = m.group().lower()
-                # 查找{}中的"\fn"字样
+                # 查找{}中的最后一个"\fn"字样
                 fn_pos = style_str.rfind('\\fn')
                 if fn_pos != -1:
                     m_font = inlineFont_pattern.match(style_str[fn_pos:])
                     fontname = m_font.group(1)    # 提取\fn后面的字体名
-            if fontname not in fontUsedList:
-                fontUsedList[fontname] = 0
-            fontUsedList[fontname] += len(text) - pos
+            self.__addToDict(fontUsedDict, fontname, len(text) - pos)
             i += 1
 
+        fontUsedList = [{'fontname': font, 'count': fontUsedDict[font], 'isEmbed': False}
+                        for font in fontUsedDict]
         return fontUsedList
 
     def embedFonts(self, *args):
