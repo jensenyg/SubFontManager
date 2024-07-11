@@ -30,7 +30,7 @@ class FontList(tk.Frame):
         columnTitle.columnconfigure(1, weight=1, uniform="column")
         columnTitle.columnconfigure(2, weight=0)
         columnTitle.columnconfigure(3, weight=0)
-        columnTitle.columnconfigure(4, weight=1, uniform="column")
+        columnTitle.columnconfigure(4, weight=2, uniform="column")
 
         # 可滚动表 ----------------
         self.canvas = tk.Canvas(self, bg=self.bg)
@@ -48,7 +48,7 @@ class FontList(tk.Frame):
         self.scrollableFrame.columnconfigure(1, weight=1, uniform="column")
         self.scrollableFrame.columnconfigure(2, weight=0)
         self.scrollableFrame.columnconfigure(3, weight=0)
-        self.scrollableFrame.columnconfigure(4, weight=1, uniform="column")
+        self.scrollableFrame.columnconfigure(4, weight=2, uniform="column")
 
         # 绑定鼠标滚轮事件
         # Windows and MacOS
@@ -84,17 +84,19 @@ class FontList(tk.Frame):
         }
         row_item['isEmbed'].set(isEmbed)
         row_item['isSubset'].set(isSubset)
-        row_item['source'].set(source)
+        row_item['source'].set(source if source else '')
         self.itemList.append(row_item)
 
-        check1 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isEmbed'])
+        check1 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isEmbed'],
+                                state=tk.NORMAL if source else tk.DISABLED)
         check1.configure(width=2)
         check1.grid(row=row_index, column=0, padx=(5, 1), sticky="w")
-        label2 = tk.Label(self.scrollableFrame, text=fontName)
+        label2 = tk.Label(self.scrollableFrame, text=fontName, anchor='w')
         label2.grid(row=row_index, column=1, pady=(0, 2), sticky='w')
         label3 = tk.Label(self.scrollableFrame, text=str(charCount) + ' ', width=6, anchor='e')
         label3.grid(row=row_index, column=2, padx=(0, 8), pady=(0, 2), sticky='e')
-        check4 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isSubset'], width=3)
+        check4 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isSubset'], width=3,
+                                state=tk.NORMAL if source else tk.DISABLED)
         check4.configure(width=3)
         check4.grid(row=row_index, column=3, padx=(0, 1), sticky="ew")
         entry5 = ttk.Entry(self.scrollableFrame, textvariable=row_item['source'])

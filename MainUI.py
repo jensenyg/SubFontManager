@@ -1,9 +1,12 @@
+import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
+import matplotlib.font_manager as fontmgr
 from FontList import FontList
 from PlaceholderEntry import PlaceholderEntry
 from SubStationAlpha import SubStationAlpha
+from FontManager import FontManager
 
 
 class MainUI:
@@ -20,8 +23,9 @@ class MainUI:
         ttk.Label(frame1, text="输入文件:").grid(row=0, column=0, pady=gapy, sticky="w")
         # 这里如果不放在self下，函数执行完后file_entry_text就会被回收，导致事件监听失效
         self.file_entry_text = tk.StringVar()
+        self.file_entry_text.set('/Users/shine/Downloads/Cowboy Bebop S01E01 BDRip 1080p x265-NAHOM.chs.ass')
         self.file_entry = ttk.Entry(frame1, textvariable=self.file_entry_text)
-        self.file_entry.grid(row=0, column=1, columnspan=2, padx=5, pady=(1, 0), sticky="ew")
+        self.file_entry.grid(row=0, column=1, columnspan=2, padx=(5, 2), pady=(1, 0), sticky="ew")
         self.file_entry.bind("<Return>", self.onFileEntryEnter)
         self.file_entry_text.trace("w", self.onFileEntryInsert)
         open_file_btn = tk.Button(frame1, text="...", command=self.openFile)
@@ -40,7 +44,7 @@ class MainUI:
             .pack(side='left', padx=5, pady=gapy)
         self.dir_entry = PlaceholderEntry(saveas_frame, placeholder="Leave blank to save to source directory.")
         self.dir_entry.configure(state=tk.DISABLED)
-        self.dir_entry.pack(side='left', padx=5, pady=(1, 0), fill="x", expand=True)
+        self.dir_entry.pack(side='left', padx=(5, 2), pady=(1, 0), fill="x", expand=True)
         self.open_dir_btn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openDirectory)
         self.open_dir_btn.pack(side='right', pady=(0, 2))
 
@@ -73,6 +77,8 @@ class MainUI:
         # 绑定拖放事件到窗口
         root.drop_target_register(DND_FILES)
         root.dnd_bind('<<Drop>>', self.onDrop)
+
+        self.onLoadBtn()
 
     def openFile(self):
         filename = filedialog.askopenfilename(
@@ -118,11 +124,13 @@ class MainUI:
             return
         fontList = subtitleObj.gatherFonts()
         self.font_table.clear()
-        for item in fontList:
-            self.font_table.addRow(
-                fontName=item['fontname'], isEmbed=item['isEmbed'], isSubset=True, charCount=item['count'])
-        # subtitleObj.save(self.dir_entry.get())
-        self.load_btn.configure(text="重新载入" if subtitleObj else "载入", state=tk.NORMAL)
+        if fontList:
+            font_mgr = FontManager(os.path.dirname(path))
+            for item in fontList:
+                self.font_table.addRow(
+                    fontName=item['fontname'], isEmbed=item['isEmbed'], isSubset=True, charCount=item['count'],
+                    source=font_mgr.findFont(item['fontname']))
+        self.load_btn.configure(text="载入" if subtitleObj is None else "重新载入", state=tk.NORMAL)
 
     def onOkBtn(self, event):
         pass

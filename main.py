@@ -18,6 +18,6 @@ if __name__ == "__main__":
     root = TkinterDnD.Tk()
     root.title("Ass Font Embedder")
     root.minsize(400, 300)
-    place_window(root, 500, 400, yRatio=0.35)
+    place_window(root, 600, 400, yRatio=0.35)
     mainUI = MainUI(root)
     root.mainloop()
