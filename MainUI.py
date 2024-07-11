@@ -54,7 +54,7 @@ class MainUI:
         self.load_btn = tk.Button(frame2, text="载入", width=6, command=self.onLoadBtn, state=tk.DISABLED)
         self.load_btn.pack(side='right', padx=5)
 
-        self.font_table = FontList(root, bg='#FFF', bd=1, relief="sunken")
+        self.font_table = FontList(root)
         self.font_table.grid(row=2, padx=10, pady=5, sticky="nswe")
 
         # 底部的确定和取消按钮区 --------------
@@ -117,7 +117,7 @@ class MainUI:
         if not subtitleObj:
             return
         fontList = subtitleObj.gatherFonts()
-        self.font_table.clearRows()
+        self.font_table.clear()
         for item in fontList:
             self.font_table.addRow(
                 fontName=item['fontname'], isEmbed=item['isEmbed'], isSubset=True, charCount=item['count'])

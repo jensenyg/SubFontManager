@@ -2,20 +2,53 @@ import tkinter as tk
 from tkinter import ttk
 
 
-class ScrollableFrame(tk.Frame):
-    def __init__(self, container, **kwargs):
-        super().__init__(container, **kwargs)
-        self.bg = kwargs.get('background', kwargs.get('bg'))
+class FontList(tk.Frame):
+    def __init__(self, container):
+        self.bg = 'white'
+        self.columnWidth = []
+        self.itemList = []   # [{fontname, isEmbed, isSubset, source}]
 
+        super().__init__(container, bg=self.bg, bd=1, relief="sunken")
+        self.rowconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
+
+        # 列标题 -----------------
+        columnTitle = tk.Frame(self)
+        columnTitle.grid(row=0, column=0, sticky='ew')
+        relief = 'raised'
+        label1 = tk.Label(columnTitle, text='内嵌', width=3, bd=1, relief=relief)
+        label1.grid(row=0, column=0, sticky="ew")
+        label2 = tk.Label(columnTitle, text='字体', bd=1, relief=relief)
+        label2.grid(row=0, column=1, sticky="ew")
+        label3 = tk.Label(columnTitle, text='字数', width=6, bd=1, relief=relief)
+        label3.grid(row=0, column=2, sticky="ew")
+        label4 = tk.Label(columnTitle, text='子集化', width=5, bd=1, relief=relief)
+        label4.grid(row=0, column=3, sticky="ew")
+        label5 = tk.Label(columnTitle, text='文件源', bd=1, relief=relief)
+        label5.grid(row=0, column=4, sticky="ew")
+        columnTitle.columnconfigure(0, weight=0)
+        columnTitle.columnconfigure(1, weight=1, uniform="column")
+        columnTitle.columnconfigure(2, weight=0)
+        columnTitle.columnconfigure(3, weight=0)
+        columnTitle.columnconfigure(4, weight=1, uniform="column")
+
+        # 可滚动表 ----------------
         self.canvas = tk.Canvas(self, bg=self.bg)
-        self.canvas.config(highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-        self.canvas.pack(side="left", fill="both", expand=True)
-        self.scrollbar.pack(side="right", fill="y")
-        self.scrollableFrame = None
-        self.windowsId = None
-        self.createScrollableFrame()
+        self.canvas.configure(yscrollcommand=self.scrollbar.set, highlightthickness=0)
+        self.canvas.grid(row=1, column=0, sticky='nsew')
+        self.scrollbar.grid(row=0, column=1, rowspan=2, sticky='ns')
+
+        self.scrollableFrame = tk.Frame(self.canvas, bg=self.bg)
+        self.scrollableFrame.bind(
+            "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.scrollableFrameId = self.canvas.create_window((0, 0), window=self.scrollableFrame, anchor="nw")
+
+        self.scrollableFrame.columnconfigure(0, weight=0)
+        self.scrollableFrame.columnconfigure(1, weight=1, uniform="column")
+        self.scrollableFrame.columnconfigure(2, weight=0)
+        self.scrollableFrame.columnconfigure(3, weight=0)
+        self.scrollableFrame.columnconfigure(4, weight=1, uniform="column")
 
         # 绑定鼠标滚轮事件
         # Windows and MacOS
@@ -24,16 +57,7 @@ class ScrollableFrame(tk.Frame):
         self.canvas.bind_all("<Button-4>", self.onMouseWheel)
         self.canvas.bind_all("<Button-5>", self.onMouseWheel)
 
-    def createScrollableFrame(self):
-        self.scrollableFrame = tk.Frame(self.canvas, bg=self.bg)
-        self.scrollableFrame.bind(
-            "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.windowsId = self.canvas.create_window((0, 0), window=self.scrollableFrame, anchor="nw")
-
-    def reset(self):
-        self.canvas.delete(self.windowsId)
-        self.scrollableFrame.destroy()
-        self.createScrollableFrame()
+        self.canvas.bind("<Configure>", self.onResize)
 
     def onMouseWheel(self, event):
         if self.scrollbar.get() == (0.0, 1.0):
@@ -45,20 +69,9 @@ class ScrollableFrame(tk.Frame):
         elif event.num == 5:  # Linux scroll down
             self.canvas.yview("scroll", 1, "units")
 
-
-class FontList(ScrollableFrame):
-    def __init__(self, container, **kwargs):
-        super().__init__(container, **kwargs)
-        self.columnWidth = []
-        self.setColumnWidth([1, 2, 3])
-        self.itemList = []   # [{fontname, isEmbed, isSubset, source}]
-
-    def setColumnWidth(self, *args):
-        if len(args) == 1 and args is list:
-            self.columnWidth = args[0]
-        elif len(args) == 2:
-            self.columnWidth[args[0]] = args[1]
-        self.scrollableFrame.columnconfigure(0, weight=1)
+    def onResize(self, event):
+        # 更新Frame的大小
+        self.canvas.itemconfig(self.scrollableFrameId, width=event.width)
 
     def addRow(self, fontName: str, isEmbed: bool = False, isSubset: bool = True, charCount: int = 0,
                source: str = ''):
@@ -74,19 +87,21 @@ class FontList(ScrollableFrame):
         row_item['source'].set(source)
         self.itemList.append(row_item)
 
-        check1 = tk.Checkbutton(self.scrollableFrame, text=fontName, variable=row_item['isEmbed'], bg='white')
-        check1.grid(row=row_index, column=0, pady=1, sticky="w")
+        check1 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isEmbed'])
+        check1.configure(width=2)
+        check1.grid(row=row_index, column=0, padx=(5, 1), sticky="w")
+        label2 = tk.Label(self.scrollableFrame, text=fontName)
+        label2.grid(row=row_index, column=1, pady=(0, 2), sticky='w')
+        label3 = tk.Label(self.scrollableFrame, text=str(charCount) + ' ', width=6, anchor='e')
+        label3.grid(row=row_index, column=2, padx=(0, 8), pady=(0, 2), sticky='e')
+        check4 = tk.Checkbutton(self.scrollableFrame, variable=row_item['isSubset'], width=3)
+        check4.configure(width=3)
+        check4.grid(row=row_index, column=3, padx=(0, 1), sticky="ew")
+        entry5 = ttk.Entry(self.scrollableFrame, textvariable=row_item['source'])
+        entry5.grid(row=row_index, column=4, sticky="ew")
 
-        charcount_label = tk.Label(self.scrollableFrame, text=str(charCount), bg="white")
-        charcount_label.grid(row=row_index, column=1, padx=5, sticky='e')
-
-        check2 = tk.Checkbutton(self.scrollableFrame, text="Subset", variable=row_item['isSubset'], bg='white')
-        check2.grid(row=row_index, column=2, padx=(5, 0), pady=1, sticky="e")
-
-        check2 = ttk.Entry(self.scrollableFrame, textvariable=row_item['source'])
-        check2.grid(row=row_index, column=3, padx=(5, 0), pady=1, sticky="e")
-
-    def clearRows(self):
+    def clear(self):
         if self.itemList:
             self.itemList.clear()
-            self.reset()
+            for widget in self.scrollableFrame.winfo_children():
+                widget.destroy()
