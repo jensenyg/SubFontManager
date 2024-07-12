@@ -16,7 +16,7 @@ def place_window(window, width=500, height=400, xRatio=0.5, yRatio=0.5):
 if __name__ == "__main__":
     # UI配置 -----------------------
     root = TkinterDnD.Tk()
-    root.title("Ass Font Embedder")
+    root.title("Ass Font Manager")
     root.minsize(400, 300)
     place_window(root, 600, 400, yRatio=0.35)
     mainUI = MainUI(root)
