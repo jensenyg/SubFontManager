@@ -1,7 +1,9 @@
 import os
+import io
 import re
 from enum import Enum
 from tkinter import messagebox
+from FontManager import FontManager
 from UUEncoding import UUEncode, UUDecode
 
 
@@ -119,7 +121,7 @@ class SubStationAlpha:
         # self.lines = None
         self.infoList = []
         self.styleList = StyleList()
-        self.fontList = []  # [{'fontname', 'fontcode'}]
+        self.fontList = []  # [{'fontname', 'fontcode', 'names'}]
         self.dialogueList = DialogueList()
         self.otherList = []
         self._load()
@@ -178,7 +180,7 @@ class SubStationAlpha:
                             self.styleList.append(line_str)
                     elif section == Section.FONT:    # Font Section
                         if line_str_lower.startswith('fontname:'):
-                            font_obj = {'fontname': line_str[9:].strip(), 'fontcode': ''}
+                            font_obj = {'fontname': line_str[9:].strip(), 'fontcode': '', 'names': []}
                             self.fontList.append(font_obj)
                         else:
                             font_obj['fontcode'] += line_str    # 合并多行内嵌字体
@@ -230,22 +232,24 @@ class SubStationAlpha:
                 i += 1
 
     @staticmethod
-    def __addToDict(d: dict, key: str, num: int):
+    def __addToDict(d: dict, key: str, text: str):
         if key:
-            if key not in d:
-                d[key] = num
+            if key in d:
+                d[key]['text'] += text
             else:
-                d[key] += num
+                d[key] = {'text': text, 'embedName': None}
 
     def gatherFonts(self) -> list:
         """
         搜集字幕中所有出现过的字体，以及每种字体覆盖的文字数量
-        :return: [{fontname, count, isEmbed}, ...]
+        :return: [{fontname, count, embed}, ...]
         """
-        fontUsedDict = {}   # 出现过的所有字体的列表
+        fontUsedDict = {}   # 出现过的所有字体的列表：{fontname, {count, embed}}
+        # 收集Style中出现的字体
         for style in self.styleList:
-            fontUsedDict[self.styleList.getStyleField(style, 'fontname')] = 0
+            fontUsedDict[self.styleList.getStyleField(style, 'fontname')] = {'text': '', 'embedName': None}
 
+        # 收集Dialogue中出现的字体
         inlineStyle_pattern = re.compile(r'\{.*?\}')    # 用于查找行内样式{}的内容
         inlineFont_pattern = re.compile(r'\\fn(.*?)[\\,\}]')    # 用于查找{}内的\fn内容并提取字体名
         i = 0
@@ -257,7 +261,7 @@ class SubStationAlpha:
             miter = inlineStyle_pattern.finditer(text)
             pos = 0    # 文字位置指针
             for m in miter:
-                self.__addToDict(fontUsedDict, fontname, m.start() - pos)
+                self.__addToDict(fontUsedDict, fontname, text[pos: m.start()])
                 pos = m.end()
                 style_str = m.group().lower()
                 # 查找{}中的最后一个"\fn"字样
@@ -265,12 +269,30 @@ class SubStationAlpha:
                 if fn_pos != -1:
                     m_font = inlineFont_pattern.match(style_str[fn_pos:])
                     fontname = m_font.group(1)    # 提取\fn后面的字体名
-            self.__addToDict(fontUsedDict, fontname, len(text) - pos)
+            self.__addToDict(fontUsedDict, fontname, text[pos:])
             i += 1
 
-        fontUsedList = [{'fontname': font, 'count': fontUsedDict[font], 'isEmbed': False}
-                        for font in fontUsedDict]
-        return fontUsedList
+        # 加入内嵌的字体
+        for font_obj in self.fontList:
+            memory_ttf = io.BytesIO()
+            memory_ttf.write(UUDecode(font_obj['fontcode']))
+            memory_ttf.seek(0)
+            res = FontManager.getFontNames(memory_ttf)
+            if not res or (not res[0] and not res[1]):   # 如果无法获取名称，则是无效字体，删除
+                self.fontList.remove(font_obj)
+                continue
+
+            font_obj['names'] = res[1] + res[0]
+            font_included = False   # 字体是否被使用的标记
+            for name in font_obj['names']:  # 遍历内嵌字体名，将已经使用的打上embed信息
+                if name in fontUsedDict:
+                    fontUsedDict[name]['embedName'] = font_obj['fontname']
+                    font_included = True
+            if not font_included:   # 如果文字未被使用，仍需要加入一个条目
+                fontUsedDict[font_obj['names'][0]] = {'text': '', 'embedName': font_obj['fontname']}
+
+        return [{'fontname': font, 'text': fontUsedDict[font]['text'], 'embedName': fontUsedDict[font]['embedName']}
+                for font in fontUsedDict]
 
     def embedFonts(self, *args):
         """
@@ -282,6 +304,27 @@ class SubStationAlpha:
             with open(path, 'rb') as file:
                 self.fontList.append({
                     'fontname': os.path.basename(path),
-                    'fontcode': UUEncode(file.read())
+                    'fontcode': UUEncode(file.read()),
+                    'names': []
                 })
         return len(args)
+
+    def extractFont(self, fontName: str, savePath: str) -> int:
+        """
+        提取内嵌的字体
+        :param fontName: 字体的名称，注意不是内部文件名
+        :param savePath: 保存的路径
+        :return: 0:成功，1:字体名无法匹配到文件，2:文件保持失败
+        """
+        for font_obj in self.fontList:
+            if fontName in font_obj['names']:
+                break
+        else:
+            return 1
+
+        try:
+            with open(savePath, 'wb') as file:
+                file.write(UUDecode(font_obj['fontcode']))
+            return 0
+        except Exception as e:
+            return 2

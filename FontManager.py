@@ -10,6 +10,9 @@ class FontManager:
     systemFontsFamilyNames = {}     # {familyname, fontpath}
     systemFontsFullNames = {}       # {fullname, fontpath}
 
+    LOCAL = 'local'
+    SYSTEM = 'system'
+
     @classmethod
     def initSystemFontList(cls):
         # 读取缓存文件
@@ -18,6 +21,7 @@ class FontManager:
                 with open(cls.cacheFilePath, 'r') as file:
                     cache_str = file.read()
                 cls.systemFontsCache = eval(cache_str)
+                # cls.systemFontsCache.sort(key=lambda e: e['fontpath'])
             except Exception as e:
                 print('Warning: 缓存文件错误，已删除重建.')
 
@@ -49,6 +53,8 @@ class FontManager:
 
         # 如果缓存被修改，则更新缓存文件
         if cache_modified:
+            # cache中的新条目会插入到最后，导致顺序错乱，所以需要重新排序
+            cls.systemFontsCache.sort(key=lambda e: e['fontpath'])
             # 稍微对缓存文本格式化一下
             cache_list = [str(fi) for fi in cls.systemFontsCache]
             cache_str = '[\n' + ',\n'.join(cache_list) + '\n]'
@@ -61,13 +67,18 @@ class FontManager:
             cls.systemFontsFullNames.update({name: font['fontpath'] for name in font['fullnames']})
 
     @staticmethod
-    def getFontNames(path: str):
+    def getFontNames(path):
+        """
+        获取指定字体文件内的所有字体名，包括家族（系列）名称和全称
+        :param path: 字体文件路径或BytesIO对象
+        :return: [[], []]
+        """
         try:
             family_names = set()
             full_names = set()
-            if path.lower().endswith('.ttc'):
+            if type(path) is str and path.lower().endswith('.ttc'):
                 font_collection = TTCollection(path)
-            else:
+            else:   # 这里有ttf、otf和内存BytesIO对象
                 font_collection = [TTFont(path)]
             for font in font_collection:
                 for record in font['name'].names:
@@ -79,7 +90,7 @@ class FontManager:
                             family_names.add(record_str)
                         else:
                             full_names.add(record_str)
-            return family_names, full_names
+            return list(family_names), list(full_names)
         except Exception as e:
             return None
 
@@ -97,12 +108,17 @@ class FontManager:
             self.localFontsFamilyNames.update({name: font_path for name in res[0]})
             self.localFontsFullNames.update({name: font_path for name in res[1]})
 
-    def findFont(self, fontName: str) -> str:
+    def findFont(self, fontName: str, confined: str = None) -> str:
         fontName = fontName.lower()
-        return self.localFontsFullNames.get(
-            fontName, self.localFontsFamilyNames.get(
-                fontName, self.systemFontsFullNames.get(
-                    fontName, self.systemFontsFamilyNames.get(fontName))))
+        if confined == self.LOCAL:
+            return self.localFontsFullNames.get(fontName, self.localFontsFamilyNames.get(fontName, ''))
+        elif confined == self.SYSTEM:
+            return self.systemFontsFullNames.get(fontName, self.systemFontsFamilyNames.get(fontName, ''))
+        else:
+            return self.localFontsFullNames.get(
+                fontName, self.localFontsFamilyNames.get(
+                    fontName, self.systemFontsFullNames.get(
+                        fontName, self.systemFontsFamilyNames.get(fontName, ''))))
 
 
 print('Indexing system fonts... ', end='')

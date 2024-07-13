@@ -1,12 +1,9 @@
-import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
-import matplotlib.font_manager as fontmgr
 from FontList import FontList
-from PlaceholderEntry import PlaceholderEntry
+from PlaceholderInput import PlaceholderEntry
 from SubStationAlpha import SubStationAlpha
-from FontManager import FontManager
 
 
 class MainUI:
@@ -26,10 +23,9 @@ class MainUI:
         self.file_entry_text.set('/Users/shine/Downloads/Cowboy Bebop S01E01 BDRip 1080p x265-NAHOM.chs.ass')
         self.file_entry = ttk.Entry(frame1, textvariable=self.file_entry_text)
         self.file_entry.grid(row=0, column=1, columnspan=2, padx=(5, 2), pady=(1, 0), sticky="ew")
-        self.file_entry.bind("<Return>", self.onFileEntryEnter)
-        self.file_entry_text.trace("w", self.onFileEntryInsert)
-        open_file_btn = tk.Button(frame1, text="...", command=self.openFile)
-        open_file_btn.grid(row=0, column=3, pady=(0, 2))
+        self.file_entry.bind('<Return>', self.onFileEntryEnter)
+        self.file_entry_text.trace_add('write', self.onFileEntryInsert)
+        tk.Button(frame1, text="...", command=self.openFile).grid(row=0, column=3, pady=(0, 2))
 
         ttk.Label(frame1, text="输出文件:").grid(row=1, column=0, pady=gapy, sticky="w")
         self.save_mode = tk.IntVar()
@@ -61,14 +57,11 @@ class MainUI:
         self.font_table = FontList(root)
         self.font_table.grid(row=2, padx=10, pady=5, sticky="nswe")
 
-        # 底部的确定和取消按钮区 --------------
+        # 底部的应用和关闭按钮区 --------------
         button_frame = ttk.Frame(root)
         button_frame.grid(row=3, pady=(5, 10))
-
-        ok_button = ttk.Button(button_frame, text="确定", command=self.onOkBtn)
-        ok_button.pack(side="left", padx=5)
-        cancel_button = ttk.Button(button_frame, text="取消", command=root.destroy)
-        cancel_button.pack(side="right", padx=5)
+        ttk.Button(button_frame, text="应用", command=self.onApplyBtn).pack(side="left", padx=5)
+        ttk.Button(button_frame, text="关闭", command=root.destroy).pack(side="right", padx=5)
 
         # 配置列权重，使列表框能够随窗口大小变化而变化
         root.rowconfigure(2, weight=1)
@@ -81,23 +74,23 @@ class MainUI:
         self.onLoadBtn()
 
     def openFile(self):
-        filename = filedialog.askopenfilename(
-            filetypes=[("Advanced SubStation Alpha", "*.ass"), ("SubStation Alpha", "*.ssa"), ("All files", "*.*")])
-        if filename:
-            self.file_entry_text.set(filename)
+        file_name = filedialog.askopenfilename(
+            filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
+        if file_name:
+            self.file_entry_text.set(file_name)
         self.root.focus_force()
         self.onLoadBtn()
 
     def openDirectory(self):
-        filepath = filedialog.asksaveasfilename(
+        file_path = filedialog.asksaveasfilename(
             initialdir=".",
             initialfile="newsubtitle",
             defaultextension=".ass",
-            filetypes=[("Advanced SubStation Alpha", "*.ass"), ("SubStation Alpha", "*.ssa"), ("All files", "*.*")]
+            filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")]
         )
-        if filepath:
+        if file_path:
             self.dir_entry.delete(0, tk.END)
-            self.dir_entry.insert(0, filepath)
+            self.dir_entry.insert(0, file_path)
         self.root.focus_force()
 
     def onDrop(self, event):
@@ -120,17 +113,9 @@ class MainUI:
     def onLoadBtn(self, *args):
         path = self.file_entry.get()
         subtitleObj = SubStationAlpha.load(path)
-        if not subtitleObj:
-            return
-        fontList = subtitleObj.gatherFonts()
-        self.font_table.clear()
-        if fontList:
-            font_mgr = FontManager(os.path.dirname(path))
-            for item in fontList:
-                self.font_table.addRow(
-                    fontName=item['fontname'], isEmbed=item['isEmbed'], isSubset=True, charCount=item['count'],
-                    source=font_mgr.findFont(item['fontname']))
-        self.load_btn.configure(text="载入" if subtitleObj is None else "重新载入", state=tk.NORMAL)
+        if subtitleObj:
+            self.font_table.loadSubtitle(subtitleObj)
+            self.load_btn.configure(text="载入" if subtitleObj is None else "重新载入", state=tk.NORMAL)
 
-    def onOkBtn(self, event):
+    def onApplyBtn(self, *args):
         pass
