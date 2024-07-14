@@ -2,19 +2,26 @@ import os
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 import matplotlib.font_manager as fm
+from StatusBar import StatusBar
 
 
 class FontManager:
+    LOCAL = 'local'
+    SYSTEM = 'system'
     cacheFilePath = './fontcache.json'
     systemFontsCache = []  # [{fontpath: str, familynames: str, fullnames: str, filesize: int}]
     systemFontsFamilyNames = {}     # {familyname, fontpath}
     systemFontsFullNames = {}       # {fullname, fontpath}
 
-    LOCAL = 'local'
-    SYSTEM = 'system'
-
     @classmethod
-    def initSystemFontList(cls):
+    def initSystemFontList(cls, stopEvent=None):
+        """
+        初始化类，索引系统字体并创建缓存文件，如果发现了缓存，则读取缓存，并和系统字体进行比较，然后查缺补漏.
+        :param stopEvent: 停止事件，用于在异步执行时通知函数停止执行。
+        """
+        if stopEvent and stopEvent.is_set():
+            return
+
         # 读取缓存文件
         if os.path.isfile(cls.cacheFilePath) and os.access(cls.cacheFilePath, os.R_OK):
             try:
@@ -25,12 +32,18 @@ class FontManager:
             except Exception as e:
                 print('Warning: 缓存文件错误，已删除重建.')
 
+        if stopEvent and stopEvent.is_set():
+            return
+
         # 比较缓存列表和系统实际列表的差异，查缺补漏 -----------
         system_font_paths = sorted(fm.findSystemFonts())    # 列出全部系统字体路径
         i, j = 0, 0
         cache_len = len(cls.systemFontsCache)   # 记录缓存数量，如果老缓存条目被删除，该数量应随之减少
         cache_modified = False    # 缓存修改标记，用于判断是否需要重新保存缓存
+        statusbar_indexing_flag = False     # 状态栏"正在索引"标记
         while i < len(system_font_paths):
+            if stopEvent and stopEvent.is_set():
+                return
             path = system_font_paths[i]
             cache_item = cls.systemFontsCache[j] if j < cache_len else None
             file_size = os.path.getsize(path)
@@ -38,6 +51,9 @@ class FontManager:
                 i += 1
                 j += 1
             elif not cache_item or cache_item['fontpath'] > path:   # 系统中的字体是新增的，加入到缓存中
+                if not statusbar_indexing_flag:
+                    StatusBar.set('正在索引系统字体... ')
+                    statusbar_indexing_flag = True
                 res = cls.getFontNames(path)
                 if res:
                     cls.systemFontsCache.append({'fontpath': path, 'familynames': res[0],
@@ -51,6 +67,9 @@ class FontManager:
                 cache_len -= 1    # 老缓存条目删除，缓存数量需减少，否则j会检索到新增条目上
                 cache_modified = True
 
+        if stopEvent and stopEvent.is_set():
+            return
+
         # 如果缓存被修改，则更新缓存文件
         if cache_modified:
             # cache中的新条目会插入到最后，导致顺序错乱，所以需要重新排序
@@ -61,10 +80,16 @@ class FontManager:
             with open(cls.cacheFilePath, 'w') as file:
                 file.write(cache_str)
 
+        if stopEvent and stopEvent.is_set():
+            return
+
         # 基于systemFontsCache创建两个Name表
         for font in cls.systemFontsCache:
             cls.systemFontsFamilyNames.update({name: font['fontpath'] for name in font['familynames']})
             cls.systemFontsFullNames.update({name: font['fontpath'] for name in font['fullnames']})
+
+        if statusbar_indexing_flag:
+            StatusBar.append('完成.', 3)
 
     @staticmethod
     def getFontNames(path):
@@ -90,11 +115,15 @@ class FontManager:
                             family_names.add(record_str)
                         else:
                             full_names.add(record_str)
+                font.close()    # 关闭字体资源
             return list(family_names), list(full_names)
         except Exception as e:
             return None
 
     def __init__(self, path: str = None):
+        """
+        :param path: 指定"当前目录"，该方法会创建当前目录内的字体索引
+        """
         self.localFontsFamilyNames = {}
         self.localFontsFullNames = {}
         if not path:
@@ -109,6 +138,12 @@ class FontManager:
             self.localFontsFullNames.update({name: font_path for name in res[1]})
 
     def findFont(self, fontName: str, confined: str = None) -> str:
+        """
+        根据字体名称查找字体文件，先后搜索系统安装字体和当前目录字体
+        :param fontName: 字体名
+        :param confined: 搜索范围限定，FontManager.LOCAL：限定在当前目录，FontManager.SYSTEM：限定在系统字体
+        :return: 字体文件路径，找不到则返回''
+        """
         fontName = fontName.lower()
         if confined == self.LOCAL:
             return self.localFontsFullNames.get(fontName, self.localFontsFamilyNames.get(fontName, ''))
@@ -119,8 +154,3 @@ class FontManager:
                 fontName, self.localFontsFamilyNames.get(
                     fontName, self.systemFontsFullNames.get(
                         fontName, self.systemFontsFamilyNames.get(fontName, ''))))
-
-
-print('Indexing system fonts... ', end='')
-FontManager.initSystemFontList()
-print('Done.')

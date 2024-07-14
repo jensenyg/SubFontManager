@@ -212,8 +212,8 @@ class FontList(tk.Frame):
                 filename = row_item['sourceBakValue']
 
         cmb_src.set(filename)
+        # 清除组合框中的选区并失移走焦点，否则框内会有一段半截选区
         cmb_src.selection_clear()
-        cmb_src.icursor(tk.END)
         # self.setRowStatus(row_item)
         self.focus_set()
 

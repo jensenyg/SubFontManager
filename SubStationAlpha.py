@@ -278,6 +278,7 @@ class SubStationAlpha:
             memory_ttf.write(UUDecode(font_obj['fontcode']))
             memory_ttf.seek(0)
             res = FontManager.getFontNames(memory_ttf)
+            memory_ttf.close()
             if not res or (not res[0] and not res[1]):   # 如果无法获取名称，则是无效字体，删除
                 self.fontList.remove(font_obj)
                 continue
