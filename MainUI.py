@@ -82,7 +82,7 @@ class MainUI:
         root.bind("<Destroy>", self.onDestroy)
 
         # 用新线程索引系统字体
-        threading.Thread(target=FontManager.initSystemFontList, args=(self.stopEvent,)).start()
+        threading.Thread(target=FontManager.initSystemFontList, kwargs={'stopEvent': self.stopEvent}).start()
 
     def openFile(self):
         file_name = filedialog.askopenfilename(

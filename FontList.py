@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 from PlaceholderInput import PlaceholderCombobox
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
@@ -32,21 +32,18 @@ class FontList(tk.Frame):
         columnTitle = tk.Frame(self)
         columnTitle.grid(row=0, column=0, sticky='ew')
         relief = 'raised'
-        label1 = tk.Label(columnTitle, text='内嵌', width=3, bd=1, relief=relief)
-        label1.grid(row=0, column=0, sticky="ew")
-        label2 = tk.Label(columnTitle, text='字体', bd=1, relief=relief)
-        label2.grid(row=0, column=1, sticky="ew")
-        label3 = tk.Label(columnTitle, text='字数', width=6, bd=1, relief=relief)
-        label3.grid(row=0, column=2, sticky="ew")
-        label4 = tk.Label(columnTitle, text='子集化', width=5, bd=1, relief=relief)
-        label4.grid(row=0, column=3, sticky="ew")
-        label5 = tk.Label(columnTitle, text='文件源', bd=1, relief=relief)
-        label5.grid(row=0, column=4, sticky="ew")
+        tk.Label(columnTitle, text='内嵌', bd=1, relief=relief, width=3).grid(row=0, column=0, sticky="ew")
+        tk.Label(columnTitle, text='字体', bd=1, relief=relief).grid(row=0, column=1, sticky="ew")
+        tk.Label(columnTitle, text='样式', bd=1, relief=relief, width=5).grid(row=0, column=2, sticky="ew")
+        tk.Label(columnTitle, text='字数', bd=1, relief=relief, width=6).grid(row=0, column=3, sticky="ew")
+        tk.Label(columnTitle, text='子集化', bd=1, relief=relief, width=5).grid(row=0, column=4, sticky="ew")
+        tk.Label(columnTitle, text='文件源', bd=1, relief=relief).grid(row=0, column=5, sticky="ew")
         columnTitle.columnconfigure(0, weight=0)
         columnTitle.columnconfigure(1, weight=1, uniform="column")
         columnTitle.columnconfigure(2, weight=0)
         columnTitle.columnconfigure(3, weight=0)
-        columnTitle.columnconfigure(4, weight=2, uniform="column")
+        columnTitle.columnconfigure(4, weight=0)
+        columnTitle.columnconfigure(5, weight=2, uniform="column")
 
         # 可滚动表 ----------------
         self.canvas = tk.Canvas(self, bg=self.bg)
@@ -64,7 +61,8 @@ class FontList(tk.Frame):
         self.scrollableFrame.columnconfigure(1, weight=1, uniform="column")
         self.scrollableFrame.columnconfigure(2, weight=0)
         self.scrollableFrame.columnconfigure(3, weight=0)
-        self.scrollableFrame.columnconfigure(4, weight=2, uniform="column")
+        self.scrollableFrame.columnconfigure(4, weight=0)
+        self.scrollableFrame.columnconfigure(5, weight=2, uniform="column")
 
         # 绑定鼠标滚轮事件
         # Windows and MacOS
@@ -96,8 +94,10 @@ class FontList(tk.Frame):
             row_item = {
                 'index': len(self.itemList),
                 'fontName': item['fontname'],
-                'embedName': item['embedName'],
-                'toEmbed': tk.BooleanVar(),
+                'style': item['style'],
+                'embedName': item['embedName'],    # 已内嵌字体的内嵌文件名
+                'embed': tk.BooleanVar(),
+                'embedVarName': None,
                 'embedWidget': None,    # 由addRow函数填写
                 'subset': tk.BooleanVar(),
                 'text': item['text'],
@@ -111,16 +111,18 @@ class FontList(tk.Frame):
             self.itemList.append(row_item)
 
             if row_item['embedName']:  # 如果是内嵌字体
-                row_item['toEmbed'].set(True)
+                row_item['embed'].set(True)
                 row_item['subset'].set(False)   # 内嵌字体默认不勾选子集化
                 row_item['source'].set(self.EMBED_NAME_FMT % row_item['embedName'])
             else:
-                row_item['toEmbed'].set(False)
+                row_item['embed'].set(False)
                 row_item['subset'].set(True)
-                row_item['source'].set(self.fontMgr.findFont(row_item['fontName']))
+                row_item['source'].set(self.fontMgr.findFont(row_item['fontName'])[0])
                 # 无内嵌字体的条目也不应该有提取内嵌字体的选项
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EMBED'])
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EXTRACT'])
+            row_item['embed'].trace_add('write', self.onEmbedChange)
+            row_item['embedVarName'] = row_item['embed']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['source'].trace_add('write', self.onSourceChange)
             row_item['sourceVarName'] = row_item['source']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['sourceBakValue'] = row_item['source'].get()
@@ -129,25 +131,43 @@ class FontList(tk.Frame):
     def addRow(self, rowItem: dict):
         row_index = rowItem['index']
         # 复选框：是否内嵌
-        chk_embed = tk.Checkbutton(self.scrollableFrame, variable=rowItem['toEmbed'], width=2)
+        chk_embed = tk.Checkbutton(self.scrollableFrame, variable=rowItem['embed'], width=2)
         chk_embed.grid(row=row_index, column=0, padx=(5, 1), sticky="w")
         rowItem['embedWidget'] = chk_embed
         # 文本：字体名
         tk.Label(self.scrollableFrame, text=rowItem['fontName'], anchor='w')\
             .grid(row=row_index, column=1, pady=(0, 2), sticky='w')
+        # 文本：样式名
+        style_texts = {'regular': '常规', 'bold': '粗体', 'italic': '斜体', 'bold italic': '粗斜体'}
+        tk.Label(self.scrollableFrame, text=style_texts.get(rowItem['style'], ''), width=4, anchor='w')\
+            .grid(row=row_index, column=2, pady=(0, 2), sticky='e')
         # 文本：字数统计
         tk.Label(self.scrollableFrame, text=str(len(rowItem['text'])) + ' ', width=6, anchor='e')\
-            .grid(row=row_index, column=2, padx=(0, 8), pady=(0, 2), sticky='e')
-        # 复选框：是否取子集
+            .grid(row=row_index, column=3, padx=(0, 8), pady=(0, 2), sticky='e')
+        # 复选框：子集化
         tk.Checkbutton(self.scrollableFrame, variable=rowItem['subset'], width=3, state=rowItem['state'])\
-            .grid(row=row_index, column=3, padx=(0, 1), sticky="ew")
+            .grid(row=row_index, column=4, padx=(0, 1), sticky="ew")
         # 组合框：文件源
         cmb_src = PlaceholderCombobox(self.scrollableFrame, placeholder=self.Placeholder_NOSRC, state=rowItem['state'],
                                       textvariable=rowItem['source'], values=rowItem['sourceOptions'])
-        cmb_src.grid(row=row_index, column=4, sticky="ew")
+        cmb_src.grid(row=row_index, column=5, sticky="ew")
         cmb_src.bind("<<ComboboxSelected>>", self.onSourceComboSelect)
         rowItem['sourceWidget'] = cmb_src
         self.setRowStatus(rowItem)
+
+    def onEmbedChange(self, *args):
+        # 寻找响应的控件，这里的args[0]就是StringVar的_name
+        for row_item in self.itemList:
+            if row_item['embedVarName'] == args[0]:
+                break
+        else:
+            return
+        char_count = len(row_item['text'])
+        if row_item['embed'].get() and char_count > 100:
+            if not messagebox.askokcancel('警告', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
+                                                f"将它内嵌可能会导致字幕文件体积显著增大，你确定要这样做？"):
+                row_item['embed'].set(False)
+            row_item['embedWidget'].master.focus_set()
 
     @classmethod
     def setRowStatus(cls, rowItem: dict):
@@ -155,14 +175,13 @@ class FontList(tk.Frame):
         if rowItem['text'] and source != cls.Placeholder_NOSRC:
             rowItem['embedWidget'].configure(state=tk.NORMAL)
         else:
-            rowItem['toEmbed'].set(False)
+            rowItem['embed'].set(False)
             rowItem['embedWidget'].configure(state=tk.DISABLED)
 
     def onSourceChange(self, *args):
-        # 寻找响应的控件。这里的args[0]就是StringVar的_name
-        var_name = args[0]
+        # 寻找响应的控件，这里的args[0]就是StringVar的_name
         for row_item in self.itemList:
-            if row_item['sourceVarName'] == var_name:
+            if row_item['sourceVarName'] == args[0]:
                 break
         else:
             return
@@ -187,9 +206,9 @@ class FontList(tk.Frame):
             if row_item['embedName']:
                 filename = self.EMBED_NAME_FMT % row_item['embedName']
         elif src_text == self.SrcCmbOptions['SRCDIR']:
-            filename = self.fontMgr.findFont(row_item['fontName'], confined=FontManager.LOCAL)
+            filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.LOCAL)[0]
         elif src_text == self.SrcCmbOptions['SYSTEMFONT']:
-            filename = self.fontMgr.findFont(row_item['fontName'], confined=FontManager.SYSTEM)
+            filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.SYSTEM)[0]
         elif src_text == self.SrcCmbOptions['BROWSE']:
             filename = tk.filedialog.askopenfilename(
                 filetypes=[("Font File", "*.ttf *.ttc *.otf"), ("All files", "*.*")])
@@ -205,7 +224,7 @@ class FontList(tk.Frame):
                 filetypes=[("TrueType Font", "*.ttf"), ("All files", "*.*")]
             )
             if file_path:
-                res = self.subtitleObj.extractFont(row_item['fontName'], file_path)
+                res = self.subtitleObj.extractFont(row_item['embedName'], file_path)
                 if res:
                     raise Exception(f'保存到{file_path}文件失败!')
             if row_item['sourceBakValue'] != cmb_src.placeholder:
