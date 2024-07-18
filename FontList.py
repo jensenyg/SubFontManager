@@ -97,7 +97,6 @@ class FontList(tk.Frame):
                 'style': item['style'],
                 'embedName': item['embedName'],    # 已内嵌字体的内嵌文件名
                 'embed': tk.BooleanVar(),
-                'embedVarName': None,
                 'embedWidget': None,    # 由addRow函数填写
                 'subset': tk.BooleanVar(),
                 'text': item['text'],
@@ -121,8 +120,6 @@ class FontList(tk.Frame):
                 # 无内嵌字体的条目也不应该有提取内嵌字体的选项
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EMBED'])
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EXTRACT'])
-            row_item['embed'].trace_add('write', self.onEmbedChange)
-            row_item['embedVarName'] = row_item['embed']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['source'].trace_add('write', self.onSourceChange)
             row_item['sourceVarName'] = row_item['source']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['sourceBakValue'] = row_item['source'].get()
@@ -133,13 +130,14 @@ class FontList(tk.Frame):
         # 复选框：是否内嵌
         chk_embed = tk.Checkbutton(self.scrollableFrame, variable=rowItem['embed'], width=2)
         chk_embed.grid(row=row_index, column=0, padx=(5, 1), sticky="w")
+        chk_embed.bind("<Button-1>", self.onEmbedClicked)
         rowItem['embedWidget'] = chk_embed
         # 文本：字体名
         tk.Label(self.scrollableFrame, text=rowItem['fontName'], anchor='w')\
             .grid(row=row_index, column=1, pady=(0, 2), sticky='w')
         # 文本：样式名
         style_texts = {'regular': '常规', 'bold': '粗体', 'italic': '斜体', 'bold italic': '粗斜体'}
-        tk.Label(self.scrollableFrame, text=style_texts.get(rowItem['style'], ''), width=4, anchor='w')\
+        tk.Label(self.scrollableFrame, text=style_texts.get(rowItem['style'], ''), width=4, anchor='center')\
             .grid(row=row_index, column=2, pady=(0, 2), sticky='e')
         # 文本：字数统计
         tk.Label(self.scrollableFrame, text=str(len(rowItem['text'])) + ' ', width=6, anchor='e')\
@@ -155,19 +153,20 @@ class FontList(tk.Frame):
         rowItem['sourceWidget'] = cmb_src
         self.setRowStatus(rowItem)
 
-    def onEmbedChange(self, *args):
-        # 寻找响应的控件，这里的args[0]就是StringVar的_name
+    def onEmbedClicked(self, event):
+        # 寻找响应的控件
         for row_item in self.itemList:
-            if row_item['embedVarName'] == args[0]:
+            if row_item['embedWidget'] == event.widget:
                 break
         else:
             return
         char_count = len(row_item['text'])
-        if row_item['embed'].get() and char_count > 100:
-            if not messagebox.askokcancel('警告', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
-                                                f"将它内嵌可能会导致字幕文件体积显著增大，你确定要这样做？"):
-                row_item['embed'].set(False)
-            row_item['embedWidget'].master.focus_set()
+        if not row_item['embed'].get() and char_count > 99:
+            if messagebox.askokcancel('警告', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
+                                            f"将它内嵌可能会导致字幕文件体积显著增大，你确定要这样做？"):
+                row_item['embed'].set(True)
+            row_item['embedWidget'].focus_force()
+            return 'break'
 
     @classmethod
     def setRowStatus(cls, rowItem: dict):
@@ -212,6 +211,7 @@ class FontList(tk.Frame):
         elif src_text == self.SrcCmbOptions['BROWSE']:
             filename = tk.filedialog.askopenfilename(
                 filetypes=[("Font File", "*.ttf *.ttc *.otf"), ("All files", "*.*")])
+            cmb_src.focus_force()
             if not filename and row_item['sourceBakValue'] != cmb_src.placeholder:
                 filename = row_item['sourceBakValue']
         elif src_text == self.SrcCmbOptions['EXTRACT']:
@@ -223,18 +223,19 @@ class FontList(tk.Frame):
                 defaultextension=".ttf",
                 filetypes=[("TrueType Font", "*.ttf"), ("All files", "*.*")]
             )
+            cmb_src.focus_force()
             if file_path:
-                res = self.subtitleObj.extractFont(row_item['embedName'], file_path)
-                if res:
+                res = self.subtitleObj.extractFont(row_item['embedName'], row_item['fontName'], file_path)
+                if res != 0:
                     raise Exception(f'保存到{file_path}文件失败!')
             if row_item['sourceBakValue'] != cmb_src.placeholder:
                 filename = row_item['sourceBakValue']
 
         cmb_src.set(filename)
-        # 清除组合框中的选区并失移走焦点，否则框内会有一段半截选区
-        cmb_src.selection_clear()
-        # self.setRowStatus(row_item)
-        self.focus_set()
+        cmb_src.selection_clear()   # 清除组合框中的选区，否则框内会有半截选区
+        cmb_src.icursor(tk.END)     # 将光标移动到末尾
+        if not filename:    # 如果当前显示的占位符（"无来源"），则移走焦点，否则占位符不显示
+            self.focus_set()
 
     def onMouseWheel(self, event):
         if self.scrollbar.get() == (0.0, 1.0):

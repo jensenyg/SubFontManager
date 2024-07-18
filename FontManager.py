@@ -236,14 +236,14 @@ class FontManager:
 
         return res if res else ('', 0)
 
-    def indexOfNameInFont(self, fontName: str, path: str) -> int:
-        """从多字体文件类型（如TTC）中定位给定的字体名称在第几个位置，找不到则返回-1"""
+    def indexOfFontInPath(self, fontName: str, path: str) -> int:
+        """从指定路径（如TTC或重复内嵌字体文件名）中定位给定的字体名称在第几个位置，找不到则返回-1"""
         font_names = self.getFontNames(path)
         for i, names in enumerate(font_names):
             if fontName in names['familynames']:
                 return i
         for i, names in enumerate(font_names):
-            if fontName in names['fullames']:
+            if fontName in names['fullnames']:
                 return i
         return -1
 

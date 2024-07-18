@@ -18,7 +18,7 @@ if __name__ == "__main__":
     root = TkinterDnD.Tk()
     root.title("Ass Font Manager")
     root.minsize(400, 300)
-    place_window(root, 600, 400, yRatio=0.35)
+    place_window(root, 800, 500, yRatio=0.35)
     mainUI = MainUI(root)
     mainUI.fileEntryText.set('/Users/shine/Downloads/Cowboy Bebop S01E01 BDRip 1080p x265-NAHOM.chs.ass')
     # mainUI.onFileEntryInsert()

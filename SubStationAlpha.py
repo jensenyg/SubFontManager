@@ -126,8 +126,8 @@ class SubStationAlpha:
         self.fontList = {}  # {fontname: [fontcode]}]，fontname可能有重复，重复的放在一个list内
         self.dialogueList = DialogueList()
         self.otherList = []
-        self.embedFontMgr = None
         self._load()
+        self.embedFontMgr = FontManager(embedFonts=self.fontList)    # 为内嵌字体创建Name索引
 
     @classmethod
     def load(cls, path: str):
@@ -195,9 +195,6 @@ class SubStationAlpha:
                             self.dialogueList.setFormat(line_str)
                         elif line_str_lower.startswith('dialogue:'):
                             self.dialogueList.append(line_str)
-
-        # 为内嵌字体创建Name索引
-        self.embedFontMgr = FontManager(embedFonts=self.fontList)
 
     def save(self, path: str = None):
         """
@@ -348,20 +345,23 @@ class SubStationAlpha:
         """
         pass
 
-    def extractFont(self, fontName: str, savePath: str) -> int:
+    def extractFont(self, embedName: str, fontName: str, savePath: str) -> int:
         """
-        提取内嵌的字体
-        :param fontName: 字体名称，注意不是内部文件名，内部文件名可能重复
+        提取内嵌的字体，通过内嵌文件名（可能重复）提取给定名称的字体
+        :param embedName: 字体内部文件名，可能重复
+        :param fontName: 字体名称
         :param savePath: 保存的路径
         :return: 0:成功，1:字体名无法匹配到文件，2:文件保持失败
         """
-        embedName, i = self.embedFontMgr.findFont(fontName)
+        index = self.embedFontMgr.indexOfFontInPath(fontName, embedName)
         # 找到提取的目标字体
-        if not embedName:
+        if index == -1:
             return 1
+        if not os.access(os.path.dirname(savePath), os.W_OK):
+            messagebox.showerror("错误", f"文件 {savePath} 无法写入。")
         try:
             with open(savePath, 'wb') as file:
-                file.write(UUDecode(self.fontList[embedName][i]))
+                file.write(UUDecode(self.fontList[embedName][index]))
             return 0
         except Exception as e:
             return 2
