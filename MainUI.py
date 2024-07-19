@@ -15,7 +15,8 @@ class MainUI:
         self.stopEvent = threading.Event()    # 程序即将关闭事件
         gapy = 2    # 控件垂直间距
         style = ttk.Style()
-        style.map('TEntry', fieldbackground=[('!disabled', 'white')])   # 设置输入框非禁用背景色为白色
+        style.map('TEntry', fieldbackground=[('!disabled', 'white')])   # 设置所有输入框非禁用内背景色为白色
+        # style.map('TCombobox', fieldbackground=[('background', 'red')])   # 设置所有输入框外背景色为白色
 
         # 文件打开和保存区 ---------------
         file_frame = ttk.Frame(root)

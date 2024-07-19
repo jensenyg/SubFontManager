@@ -1,12 +1,13 @@
 import os
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
 from PlaceholderInput import PlaceholderCombobox
+from WidgetTable import WidgetTable
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
 
 
-class FontList(tk.Frame):
+class FontList(WidgetTable):
     SrcCmbOptions = {   # Source Combobox Options
         'EMBED': '<使用内嵌字体>',
         'SRCDIR': '<使用同目录下的字体>',
@@ -17,69 +18,27 @@ class FontList(tk.Frame):
     Placeholder_NOSRC = '<无来源>'
     EMBED_NAME_FMT = 'embed:/%s'    # 嵌入字体名的显示格式
 
-    def __init__(self, container):
-        self.bg = 'white'
+    def __init__(self, master):
+        super().__init__(master=master)
         self.columnWidth = []
         self.itemList = []   # [{fontName, isEmbed, isSubset, source, ...}]
         self.fontMgr = FontManager()
         self.subtitleObj = None
 
-        super().__init__(container, bg=self.bg, bd=1, relief="sunken")
-        self.rowconfigure(1, weight=1)
-        self.columnconfigure(0, weight=1)
-
-        # 列标题 -----------------
-        columnTitle = tk.Frame(self)
-        columnTitle.grid(row=0, column=0, sticky='ew')
-        relief = 'raised'
-        tk.Label(columnTitle, text='内嵌', bd=1, relief=relief, width=3).grid(row=0, column=0, sticky="ew")
-        tk.Label(columnTitle, text='字体', bd=1, relief=relief).grid(row=0, column=1, sticky="ew")
-        tk.Label(columnTitle, text='样式', bd=1, relief=relief, width=5).grid(row=0, column=2, sticky="ew")
-        tk.Label(columnTitle, text='字数', bd=1, relief=relief, width=6).grid(row=0, column=3, sticky="ew")
-        tk.Label(columnTitle, text='子集化', bd=1, relief=relief, width=5).grid(row=0, column=4, sticky="ew")
-        tk.Label(columnTitle, text='文件源', bd=1, relief=relief).grid(row=0, column=5, sticky="ew")
-        columnTitle.columnconfigure(0, weight=0)
-        columnTitle.columnconfigure(1, weight=1, uniform="column")
-        columnTitle.columnconfigure(2, weight=0)
-        columnTitle.columnconfigure(3, weight=0)
-        columnTitle.columnconfigure(4, weight=0)
-        columnTitle.columnconfigure(5, weight=2, uniform="column")
-
-        # 可滚动表 ----------------
-        self.canvas = tk.Canvas(self, bg=self.bg)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.scrollbar.set, highlightthickness=0)
-        self.canvas.grid(row=1, column=0, sticky='nsew')
-        self.scrollbar.grid(row=0, column=1, rowspan=2, sticky='ns')
-
-        self.scrollableFrame = tk.Frame(self.canvas, bg=self.bg)
-        self.scrollableFrame.bind(
-            "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
-        self.scrollableFrameId = self.canvas.create_window((0, 0), window=self.scrollableFrame, anchor="nw")
-
-        self.scrollableFrame.columnconfigure(0, weight=0)
-        self.scrollableFrame.columnconfigure(1, weight=1, uniform="column")
-        self.scrollableFrame.columnconfigure(2, weight=0)
-        self.scrollableFrame.columnconfigure(3, weight=0)
-        self.scrollableFrame.columnconfigure(4, weight=0)
-        self.scrollableFrame.columnconfigure(5, weight=2, uniform="column")
-
-        # 绑定鼠标滚轮事件
-        # Windows and MacOS
-        self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
-        # Linux
-        self.canvas.bind_all("<Button-4>", self.onMouseWheel)
-        self.canvas.bind_all("<Button-5>", self.onMouseWheel)
-
-        self.canvas.bind("<Configure>", self.onResize)
+        # 列设置 -----------------
+        self.addColumn('内嵌', width=30)
+        self.addColumn('字体', weight=1, minWidth=100, adjuster='right')
+        self.addColumn('样式', width=60)
+        self.addColumn('字数', width=60, minWidth=40, adjuster='right')
+        self.addColumn('子集', width=30)
+        self.addColumn('文件源', weight=2, minWidth=80, adjuster='left')
 
     def loadSubtitle(self, subObj: SubStationAlpha = None):
         # 清空列表
         self.subtitleObj = subObj
         if self.itemList:
             self.itemList.clear()
-            for widget in self.scrollableFrame.winfo_children():
-                widget.destroy()
+            self.clearRows()
         if subObj is None:
             return
 
@@ -89,6 +48,9 @@ class FontList(tk.Frame):
         if not fontList:
             return
 
+        # 样式名称表
+        style_texts = {'regular': '常规', 'bold': '粗体', 'italic': '斜体', 'bold italic': '粗斜体'}
+
         for item in fontList:
             # 保存行所有信息和变量的dict
             row_item = {
@@ -97,7 +59,7 @@ class FontList(tk.Frame):
                 'style': item['style'],
                 'embedName': item['embedName'],    # 已内嵌字体的内嵌文件名
                 'embed': tk.BooleanVar(),
-                'embedWidget': None,    # 由addRow函数填写
+                'embedWidget': None,
                 'subset': tk.BooleanVar(),
                 'text': item['text'],
                 'source': tk.StringVar(),
@@ -123,35 +85,32 @@ class FontList(tk.Frame):
             row_item['source'].trace_add('write', self.onSourceChange)
             row_item['sourceVarName'] = row_item['source']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['sourceBakValue'] = row_item['source'].get()
-            self.addRow(row_item)
 
-    def addRow(self, rowItem: dict):
-        row_index = rowItem['index']
-        # 复选框：是否内嵌
-        chk_embed = tk.Checkbutton(self.scrollableFrame, variable=rowItem['embed'], width=2)
-        chk_embed.grid(row=row_index, column=0, padx=(5, 1), sticky="w")
-        chk_embed.bind("<Button-1>", self.onEmbedClicked)
-        rowItem['embedWidget'] = chk_embed
-        # 文本：字体名
-        tk.Label(self.scrollableFrame, text=rowItem['fontName'], anchor='w')\
-            .grid(row=row_index, column=1, pady=(0, 2), sticky='w')
-        # 文本：样式名
-        style_texts = {'regular': '常规', 'bold': '粗体', 'italic': '斜体', 'bold italic': '粗斜体'}
-        tk.Label(self.scrollableFrame, text=style_texts.get(rowItem['style'], ''), width=4, anchor='center')\
-            .grid(row=row_index, column=2, pady=(0, 2), sticky='e')
-        # 文本：字数统计
-        tk.Label(self.scrollableFrame, text=str(len(rowItem['text'])) + ' ', width=6, anchor='e')\
-            .grid(row=row_index, column=3, padx=(0, 8), pady=(0, 2), sticky='e')
-        # 复选框：子集化
-        tk.Checkbutton(self.scrollableFrame, variable=rowItem['subset'], width=3, state=rowItem['state'])\
-            .grid(row=row_index, column=4, padx=(0, 1), sticky="ew")
-        # 组合框：文件源
-        cmb_src = PlaceholderCombobox(self.scrollableFrame, placeholder=self.Placeholder_NOSRC, state=rowItem['state'],
-                                      textvariable=rowItem['source'], values=rowItem['sourceOptions'])
-        cmb_src.grid(row=row_index, column=5, sticky="ew")
-        cmb_src.bind("<<ComboboxSelected>>", self.onSourceComboSelect)
-        rowItem['sourceWidget'] = cmb_src
-        self.setRowStatus(rowItem)
+            # 添加行 ------------------
+            row_frame = self.newRow()
+            # 复选框：是否内嵌
+            chk_embed = tk.Checkbutton(row_frame, variable=row_item['embed'], bg=self.bg)
+            chk_embed.bind("<Button-1>", self.onEmbedClicked)
+            row_item['embedWidget'] = chk_embed
+            # 文本：字体名
+            tk.Label(row_frame, text=row_item['fontName'], anchor='w', bg=self.bg)
+            # 文本：样式名
+            tk.Label(row_frame, text=style_texts.get(row_item['style'], ''), anchor='center', bg=self.bg)
+            # 文本：字数统计
+            tk.Label(row_frame, text=str(len(row_item['text'])) + ' ', anchor='e', bg=self.bg)
+            # 复选框：子集化
+            tk.Checkbutton(row_frame, variable=row_item['subset'], state=row_item['state'], bg=self.bg)
+            # 组合框：文件源
+            cmb_src = PlaceholderCombobox(row_frame, placeholder=self.Placeholder_NOSRC, state=row_item['state'],
+                                          textvariable=row_item['source'], values=row_item['sourceOptions'], background=self.bg)
+            cmb_src.bind("<<ComboboxSelected>>", self.onSourceComboSelect)
+            row_item['sourceWidget'] = cmb_src
+
+            self.addRow(row_frame)
+            self.setRowStatus(row_item)
+
+        self.update_idletasks()    # 强制重绘，否则可能导致布局错误
+        self.onResize()
 
     def onEmbedClicked(self, event):
         # 寻找响应的控件
@@ -209,7 +168,7 @@ class FontList(tk.Frame):
         elif src_text == self.SrcCmbOptions['SYSTEMFONT']:
             filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.SYSTEM)[0]
         elif src_text == self.SrcCmbOptions['BROWSE']:
-            filename = tk.filedialog.askopenfilename(
+            filename = filedialog.askopenfilename(
                 filetypes=[("Font File", "*.ttf *.ttc *.otf"), ("All files", "*.*")])
             cmb_src.focus_force()
             if not filename and row_item['sourceBakValue'] != cmb_src.placeholder:
@@ -236,17 +195,3 @@ class FontList(tk.Frame):
         cmb_src.icursor(tk.END)     # 将光标移动到末尾
         if not filename:    # 如果当前显示的占位符（"无来源"），则移走焦点，否则占位符不显示
             self.focus_set()
-
-    def onMouseWheel(self, event):
-        if self.scrollbar.get() == (0.0, 1.0):
-            return
-        if event.delta:  # Windows and MacOS
-            self.canvas.yview("scroll", -event.delta, "units")
-        elif event.num == 4:  # Linux scroll up
-            self.canvas.yview("scroll", -1, "units")
-        elif event.num == 5:  # Linux scroll down
-            self.canvas.yview("scroll", 1, "units")
-
-    def onResize(self, event):
-        # 更新Frame的大小
-        self.canvas.itemconfig(self.scrollableFrameId, width=event.width)
