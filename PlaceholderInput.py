@@ -9,13 +9,22 @@ class PlaceholderEntry(ttk.Entry):
         self.placeholder = placeholder
         self.placeholder_color = 'grey'
         self.default_fg_color = self['foreground']
-        self.isblank = self.get() == ''
+        self.isblank = super().get() == ''
 
         self.bind('<FocusIn>', self._onFocusIn)
         self.bind('<FocusOut>', self._onFocusOut)
 
         if self.placeholder:
             self._onFocusOut()
+
+    def get(self):
+        return '' if self.isblank else super().get()
+
+    def insert(self, index, string):
+        self['foreground'] = self.default_fg_color
+        self.configure(font=tkfont.Font(slant='roman'))
+        super().insert(index, string)
+        self.isblank = super().get() == ''
 
     def _onFocusIn(self, event=None):
         if self.isblank:
@@ -29,12 +38,6 @@ class PlaceholderEntry(ttk.Entry):
             self['foreground'] = self.placeholder_color
             self.configure(font=tkfont.Font(slant='italic'))
             super().insert(0, self.placeholder)
-
-    def insert(self, index, string):
-        self['foreground'] = self.default_fg_color
-        self.configure(font=tkfont.Font(slant='roman'))
-        super().insert(index, string)
-        self.isblank = self.get() == ''
 
 
 class PlaceholderCombobox(ttk.Combobox):

@@ -1,9 +1,10 @@
 import os
+import io
 import re
 from enum import Enum
 from tkinter import messagebox
 from FontManager import FontManager
-from UUEncoding import UUDecode
+from UUEncoding import UUEncode, UUDecode
 
 
 class Section(Enum):
@@ -127,7 +128,7 @@ class SubStationAlpha:
         self.dialogueList = DialogueList()
         self.otherList = []
         self._load()
-        self.embedFontMgr = FontManager(embedFonts=self.fontList)    # 为内嵌字体创建Name索引
+        self.embedFontMgr = FontManager(assSub=self)    # 为内嵌字体创建Name索引
 
     @classmethod
     def load(cls, path: str):
@@ -199,10 +200,10 @@ class SubStationAlpha:
     def save(self, path: str = None):
         """
         保存文件到路径
-        :param path: 保持路径，缺省则写入到源文件
+        :param path: 保存路径，缺省则写入到源文件
         :return:
         """
-        if path is None:
+        if not path:
             path = self.filePath
         if not os.access(os.path.dirname(path), os.W_OK):
             messagebox.showerror("错误", f"文件 {path} 无法写入。")
@@ -337,23 +338,59 @@ class SubStationAlpha:
                 })
         return font_info
 
-    def embedFonts(self, *paths):
+    def getEmbedFont(self, embedName: str, index: int = None) -> (io.BytesIO, list):
+        """
+        获取内嵌字体对象
+        :param embedName: 内嵌文件名
+        :param index: 重复文件名中的编号，缺省则返回所有字体对象的列表
+        :return: TTFont或[TTFont]
+        """
+        if embedName not in self.fontList:
+            return None
+        font_codes = self.fontList[embedName]
+        if index is None:
+            # return [MTTFont.fromFontCode(font_code) for font_code in font_codes]
+            font_list = []
+            for font_code in font_codes:
+                ttf_bytes = io.BytesIO()
+                ttf_bytes.write(UUDecode(font_code))
+                ttf_bytes.seek(0)
+                font_list.append(ttf_bytes)
+            return font_list
+        else:
+            # return MTTFont.fromFontCode(font_codes[index])
+            ttf_bytes = io.BytesIO()
+            ttf_bytes.write(UUDecode(font_codes[index]))
+            ttf_bytes.seek(0)
+            return ttf_bytes
+
+    def embedFont(self, fontname: str, ttf_bytes: io.BytesIO, overwrite: bool = False, index: int = 0):
         """
         嵌入字体文件到字幕的Font Section中
-        :param paths:
-        :return:
+        :param fontname: 嵌入文件名
+        :param ttf_bytes: TTF数据的BytesIO
+        :param overwrite: 覆盖现有的同名字体
+        :param index: 已有在同名字体中指定被覆盖的序号
         """
-        pass
+        font_code = UUEncode(ttf_bytes.read())
+        if fontname in self.fontList:
+            if overwrite:
+                self.fontList[fontname][index] = font_code
+            else:
+                self.fontList[fontname].append(font_code)
+        else:
+            self.fontList[fontname] = [font_code]
 
-    def extractFont(self, embedName: str, fontName: str, savePath: str) -> int:
+    def extractFont(self, embedName: str, savePath: str, fontName: str, style: str = 'regular') -> int:
         """
         提取内嵌的字体，通过内嵌文件名（可能重复）提取给定名称的字体
+        :param savePath: 保存的路径
         :param embedName: 字体内部文件名，可能重复
         :param fontName: 字体名称
-        :param savePath: 保存的路径
+        :param style: 字体样式名称，缺省则默认Regular
         :return: 0:成功，1:字体名无法匹配到文件，2:文件保持失败
         """
-        index = self.embedFontMgr.indexOfFontInPath(fontName, embedName)
+        index = self.embedFontMgr.indexOfFontInPath(embedName, fontName, style)
         # 找到提取的目标字体
         if index == -1:
             return 1

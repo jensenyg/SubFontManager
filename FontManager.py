@@ -5,7 +5,6 @@ from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
 import matplotlib.font_manager as fm
 from StatusBar import StatusBar
-from UUEncoding import UUDecode
 
 
 class FontManager:
@@ -109,29 +108,33 @@ class FontManager:
                 full_names.update({name: (font_path, i) for name in font_names['fullnames']})
         return family_names, full_names
 
-    def getFontNames(self, path: (str, io.BytesIO), ignoreCache: bool = False) -> list:
+    @staticmethod
+    def decodeNameRecord(record):
+        return record.string.decode(record.getEncoding(), errors='ignore')
+
+    def getFontNames(self, file: (str, io.BytesIO), ignoreCache: bool = False) -> list:
         """
         获取指定字体文件内的所有字体名，包括家族（系列）名称、全称和样式名称，优先从缓存中读取
-        :param path: 字体文件路径、内嵌字体文件名或BytesIO对象
+        :param file: 字体文件路径、内嵌字体文件名或BytesIO对象
         :param ignoreCache: 忽略缓存，读取源文件
         :return: [{'familynames':[], 'fullnames':[], 'style':str}]
         """
         font = None
-        if type(path) is str:
+        if type(file) is str:
             if not ignoreCache:    # 搜索缓存
-                if path in self.localFontsInfo:
-                    return self.localFontsInfo[path]['fontnames']
-                elif path in self.systemFontsInfo:
-                    return self.systemFontsInfo[path]['fontnames']
-            if not os.path.isfile(path) or not os.access(path, os.R_OK):    # 检查路径
+                if file in self.localFontsInfo:
+                    return self.localFontsInfo[file]['fontnames']
+                elif file in self.systemFontsInfo:
+                    return self.systemFontsInfo[file]['fontnames']
+            if not os.path.isfile(file) or not os.access(file, os.R_OK):    # 检查路径
                 return []
 
         try:
             # 读取文件
-            if type(path) is str and path.lower().endswith('.ttc'):
-                font_collection = TTCollection(path)
+            if type(file) is str and os.path.splitext(file)[1].lower().endswith('.ttc'):
+                font_collection = TTCollection(file)
             else:   # 这里有ttf、otf和内存BytesIO对象
-                font_collection = [TTFont(path)]
+                font_collection = [TTFont(file)]
 
             font_names = []
             for font in font_collection:
@@ -141,7 +144,7 @@ class FontManager:
                 for record in font['name'].names:
                     if record.nameID not in (1, 2, 4):
                         continue
-                    record_str = record.string.decode(record.getEncoding(), errors='ignore').lower()
+                    record_str = self.decodeNameRecord(record).lower()
                     if not record_str:
                         continue
                     elif record.nameID == 1:    # Family Name
@@ -167,11 +170,11 @@ class FontManager:
                 font.close()
             return []
 
-    def __init__(self, path: str = None, embedFonts: dict = None):
+    def __init__(self, path: str = None, assSub=None):
         """
         根据给定的字体位置初始化类，其中path和embedFonts只能二选一，path优先。
         :param path: 指定"当前目录"，该方法会创建当前目录内的字体索引
-        :param embedFonts: 内嵌字体列表，[{'fontname': str, 'fontcode': str, 'names': []}]
+        :param assSub: SubStationAlpha对象，将读取其中的内嵌字体作为本地缓存
         """
         self.localFontsInfo = {}
         self.localFontsFamilyNames = {}
@@ -185,16 +188,12 @@ class FontManager:
                     print(f"Warning: 无法读取字体信息: {font_path}, 已忽略该字体.")
                     continue
                 self.localFontsInfo[font_path] = {'fontnames': font_names}
-        elif embedFonts:
-            for font_name, font_codes in embedFonts.items():
+        elif assSub:
+            for font_name in assSub.fontList:
                 embed_font_names = []
-                for i, font_code in enumerate(font_codes):
-                    # 将内嵌字体数据解码，还原为TTF文件并读取其名称
-                    memory_ttf = io.BytesIO()
-                    memory_ttf.write(UUDecode(font_code))
-                    memory_ttf.seek(0)
-                    font_names = self.getFontNames(memory_ttf)
-                    memory_ttf.close()
+                for ttf_bytes in assSub.getEmbedFont(font_name):
+                    font_names = self.getFontNames(ttf_bytes)
+                    ttf_bytes.close()
                     if not font_names:  # 如果无法获取名称，则是无效字体
                         print(f"Warning: 无法读取内嵌字体信息: {font_name}, 已忽略该字体.")
                         # embedFonts.remove(font_obj)
@@ -236,33 +235,29 @@ class FontManager:
 
         return res if res else ('', 0)
 
-    def indexOfFontInPath(self, fontName: str, path: str) -> int:
+    def indexOfFontInPath(self, path: str, fontName: str, style: str = 'regular') -> int:
         """从指定路径（如TTC或重复内嵌字体文件名）中定位给定的字体名称在第几个位置，找不到则返回-1"""
-        font_names = self.getFontNames(path)
-        for i, names in enumerate(font_names):
-            if fontName in names['familynames']:
-                return i
-        for i, names in enumerate(font_names):
-            if fontName in names['fullnames']:
-                return i
-        return -1
+        family_names, full_names = self._buildFontIndex({path: {'fontnames': self.getFontNames(path)}})
+        if fontName in family_names:
+            font_family = family_names[fontName]
+            res = font_family.get(style, font_family.get('regular', next(iter(font_family.values()))))
+        elif fontName in full_names:
+            res = full_names[fontName]
+        else:
+            return -1
+        return res[1]
 
     @staticmethod
-    def fontSubset(path, text: str, options: dict = None) -> io.BytesIO:
+    def fontSubset(font: TTFont, text: str, options: dict = None):
         """
         对字体文件取子集
-        :param path: 目标字体文件路径，或者io.BytesIO
+        :param font: 目标TTF字体对象
         :param text: 子集内需要保留的字符集
         :param options: 额外选项
         :return: io.BytesIO
         """
-        font = TTFont(path)
         subsetter = Subsetter(options=Options(
-            glyph_names=True,   # 保留字形名称
             ignore_missing_glyphs=True    # 忽略缺失字形错误
         ))
         subsetter.populate(text=text)
         subsetter.subset(font)
-        memory_ttf = io.BytesIO()
-        font.save(memory_ttf)
-        return memory_ttf

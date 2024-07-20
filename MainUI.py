@@ -45,7 +45,7 @@ class MainUI:
         self.dirEntry = PlaceholderEntry(saveas_frame, placeholder="Leave blank to save to source directory.")
         self.dirEntry.configure(state=tk.DISABLED)
         self.dirEntry.pack(side='left', padx=(5, 2), pady=(1, 0), fill="x", expand=True)
-        self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openDirectory)
+        self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openSaveAs)
         self.openDirBtn.pack(side='right', pady=(0, 2))
 
         # 配置列权重，使输入框能够随窗口大小变化而变化
@@ -93,7 +93,7 @@ class MainUI:
         self.root.focus_force()
         self.onLoadBtn()
 
-    def openDirectory(self):
+    def openSaveAs(self):
         file_path = filedialog.asksaveasfilename(
             initialdir=".",
             initialfile="newsubtitle",
@@ -109,8 +109,10 @@ class MainUI:
         file_path = event.data.strip('{}')
         if not file_path.endswith(('.ass', '.ssa')):
             messagebox.showerror("错误", "仅支持 .ass 和 .ssa 文件")
+            return
         self.fileEntry.delete(0, tk.END)
         self.fileEntry.insert(0, event.data)
+        self.onLoadBtn()
 
     def onSwitchSaveMode(self):
         self.dirEntry.configure(state=tk.DISABLED if self.saveMode.get() == 0 else tk.NORMAL, background='red')
@@ -133,7 +135,11 @@ class MainUI:
         StatusBar.set('文件载入完成.', 3)
 
     def onApplyBtn(self, *args):
-        StatusBar.set('文件写入完成.', 3)
+        res = self.fontList.applyEmbeding(self.dirEntry.get())
+        if res == 1:
+            self.root.focus_force()
+        elif self.dirEntry.isblank:    # 如果是覆盖原文件，则重新载入
+            self.onLoadBtn()
 
     def onDestroy(self, event):
         self.stopEvent.set()
