@@ -1,9 +1,11 @@
 import os
 import io
+import json
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
-import matplotlib.font_manager as fm
+from FindSystemFonts import findSystemFonts
+# from matplotlib.font_manager import findSystemFonts
 from StatusBar import StatusBar
 
 
@@ -42,7 +44,7 @@ class FontManager:
             return
 
         # 比较缓存列表和系统实际列表的差异，查缺补漏 -----------
-        system_font_paths = sorted(fm.findSystemFonts())    # 列出全部系统字体路径
+        system_font_paths = sorted(findSystemFonts())    # 列出全部系统字体路径
         cache_font_paths = sorted(cls.systemFontsInfo.keys())
         cache_modified = False    # 缓存修改标记，用于判断是否需要重新保存缓存
         fontMgr = cls()
@@ -78,9 +80,11 @@ class FontManager:
         # 如果缓存被修改，则更新缓存文件
         if cache_modified:
             # 对cache进行排序再保存，这有利于每次载入缓存后减少排序时间
-            cls.systemFontsInfo = {key: cls.systemFontsInfo[key] for key in sorted(cls.systemFontsInfo.keys())}
+            cls.systemFontsInfo = {key: cls.systemFontsInfo[key]
+                                   for key in sorted(cls.systemFontsInfo.keys())}
             # 稍微对缓存文本格式化一下
-            cache_list = [f'\'{key}\': {str(cls.systemFontsInfo[key])}' for key in cls.systemFontsInfo]
+            cache_list = [f'"{path}": {json.dumps(info, ensure_ascii=False)}'
+                          for path, info in cls.systemFontsInfo.items()]
             cache_str = '{\n' + ',\n'.join(cache_list) + '\n}'
             with open(cls.cacheFilePath, 'w') as file:
                 file.write(cache_str)
@@ -182,7 +186,7 @@ class FontManager:
 
         if path:
             # 检索path（通常为字幕同目录）目录下所有字体的信息
-            for font_path in sorted(fm.findSystemFonts(fontpaths=path)):
+            for font_path in sorted(findSystemFonts(fontpaths=path)):
                 font_names = self.getFontNames(font_path)
                 if not font_names:
                     print(f"Warning: 无法读取字体信息: {font_path}, 已忽略该字体.")

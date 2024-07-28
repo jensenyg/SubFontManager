@@ -2,3 +2,6 @@
 __pycache__
 temp*.py
 fontcache.json
+build
+dist
+*.spec

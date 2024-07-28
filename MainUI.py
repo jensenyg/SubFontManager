@@ -126,13 +126,13 @@ class MainUI:
 
     def onLoadBtn(self, *args):
         path = self.fileEntry.get()
-        StatusBar.set('正在解析文件...')
+        # StatusBar.set('正在解析文件...')
         subtitleObj = SubStationAlpha.load(path)
         if subtitleObj:
-            StatusBar.set('正在查找字体文件...')
+            # StatusBar.set('正在查找字体文件...')
             self.fontList.loadSubtitle(subtitleObj)
             self.loadBtn.configure(text="载入" if subtitleObj is None else "重新载入", state=tk.NORMAL)
-        StatusBar.set('文件载入完成.', 3)
+        # StatusBar.set('文件载入完成.', 3)
 
     def onApplyBtn(self, *args):
         res = self.fontList.applyEmbeding(self.dirEntry.get())
