@@ -1,6 +1,8 @@
 import os
+import sys
 import io
 import json
+from pathlib import Path
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
@@ -8,11 +10,27 @@ from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
 from StatusBar import StatusBar
 
+APP_NAME = 'AssFontManager'
+
+
+def get_cache_dir(mkdir: bool = False):
+    home = Path.home()
+    if sys.platform == 'darwin':  # macOS
+        cache_dir = home / "Library" / "Caches" / APP_NAME
+        if mkdir:
+            cache_dir.mkdir(exist_ok=True)
+    # elif sys.platform == 'win32':     # Windows
+    #     cache_dir = Path(os.getenv('LOCALAPPDATA', '')) / APP_NAME
+    else:   # Linux
+        # cache_dir = home / ".cache" / APP_NAME
+        cache_dir = Path(os.path.dirname(sys.argv[0]))
+    return cache_dir
+
 
 class FontManager:
     LOCAL = 'local'
     SYSTEM = 'system'
-    cacheFilePath = './fontcache.json'
+    cacheFilePath = get_cache_dir(mkdir=True) / 'fontcache.json'
 
     # 对于多字体的文件（如TTC），每个字体对象的名称分别保存在'fontnames'列表内
     # {fontpath: {'fontnames': [{'familynames': str, 'fullnames': str, 'style': str}], 'filesize': int}}
@@ -38,6 +56,8 @@ class FontManager:
                 cls.systemFontsInfo = eval(cache_str)
                 # cls.systemFontsCache.sort(key=lambda e: e['fontpath'])
             except Exception as e:
+                if file:
+                    file.close()
                 print('Warning: 缓存文件错误，已删除重建.')
 
         if stopEvent and stopEvent.is_set():
@@ -74,28 +94,36 @@ class FontManager:
                 cls.systemFontsInfo.pop(cache_path)
                 cache_modified = True
 
+        # 基于systemFontsInfo创建字体Name索引表
+        cls.systemFontsFamilyNames, cls.systemFontsFullNames = cls._buildFontIndex(cls.systemFontsInfo)
+
         if stopEvent and stopEvent.is_set():
             return
 
         # 如果缓存被修改，则更新缓存文件
+        save_failed = False
         if cache_modified:
-            # 对cache进行排序再保存，这有利于每次载入缓存后减少排序时间
-            cls.systemFontsInfo = {key: cls.systemFontsInfo[key]
-                                   for key in sorted(cls.systemFontsInfo.keys())}
-            # 稍微对缓存文本格式化一下
-            cache_list = [f'"{path}": {json.dumps(info, ensure_ascii=False)}'
-                          for path, info in cls.systemFontsInfo.items()]
-            cache_str = '{\n' + ',\n'.join(cache_list) + '\n}'
-            with open(cls.cacheFilePath, 'w') as file:
-                file.write(cache_str)
+            if os.access(os.path.dirname(cls.cacheFilePath), os.R_OK):
+                # 对cache进行排序再保存，这有利于每次载入缓存后减少排序时间
+                cls.systemFontsInfo = {key: cls.systemFontsInfo[key]
+                                       for key in sorted(cls.systemFontsInfo.keys())}
+                # 稍微对缓存文本格式化一下
+                cache_list = [f'"{path}": {json.dumps(info, ensure_ascii=False)}'
+                              for path, info in cls.systemFontsInfo.items()]
+                cache_str = '{\n' + ',\n'.join(cache_list) + '\n}'
+                try:
+                    with open(cls.cacheFilePath, 'w') as file:
+                        file.write(cache_str)
+                except Exception as e:
+                    if file:
+                        file.close()
+                    save_failed = True
+            else:
+                save_failed = True
 
-        if stopEvent and stopEvent.is_set():
-            return
-
-        # 基于systemFontsInfo创建字体Name索引表
-        cls.systemFontsFamilyNames, cls.systemFontsFullNames = cls._buildFontIndex(cls.systemFontsInfo)
-
-        if statusbar_indexing_flag:
+        if save_failed:
+            StatusBar.append('缓存保存失败.', 3)
+        elif statusbar_indexing_flag:
             StatusBar.append('完成.', 3)
 
     @staticmethod

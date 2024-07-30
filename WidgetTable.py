@@ -170,7 +170,7 @@ class WidgetTable(tk.Frame):
     def onMouseWheel(self, event):
         if self.scrollbar.get() == (0.0, 1.0):
             return
-        if event.delta:  # Windows and MacOS
+        if event.delta:  # Windows and macOS
             self.canvas.yview("scroll", -event.delta, "units")
         elif event.num == 4:  # Linux scroll up
             self.canvas.yview("scroll", -1, "units")
