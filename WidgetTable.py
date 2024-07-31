@@ -2,7 +2,20 @@ import tkinter as tk
 from tkinter import ttk
 
 
+class WidgetRow(tk.Frame):
+    """行对象，继承自Frame，提供高亮功能，同时辅助WidgetTable.addRow函数进行类型检查"""
+    HIGHLIGHT_COLOR = 'lightskyblue'
+    NORMAL_COLOR = 'white'
+
+    def setHighLight(self, highlight: bool = True):
+        color = self.HIGHLIGHT_COLOR if highlight else self.NORMAL_COLOR
+        self.configure(background=color)
+        for widget in self.children.values():
+            widget.configure(background=color)
+
+
 class WidgetTable(tk.Frame):
+    """由自定义控件组成的列表，并可以自定义列标题和调整宽度"""
     def __init__(self, **kwargs):
         self.bd = 1
         self.bg = 'white'
@@ -13,8 +26,9 @@ class WidgetTable(tk.Frame):
         self.headers = []
         self.headerBar = tk.Frame(self)
         self.headerBar.grid(row=0, column=0, sticky=tk.EW)
-        self.rows = []    # [[widget, ...], [widget, ...], ...]
-        self.cells = []
+        self.rows = []    # [WidgetRow, WidgetRow, ...]
+        self.cells = []   # [[widget, ...], [widget, ...], ...]
+        self.selectedRow = None
 
         # 可滚动表 ----------------
         self.canvas = tk.Canvas(self, bg=self.bg)
@@ -44,6 +58,15 @@ class WidgetTable(tk.Frame):
         self.after(0, self.onResize)
 
     def addColumn(self, heading: str = None, width: int = 0, minWidth: int = 0, weight: int = 0, adjuster: str = None):
+        """
+        添加列，并设置列的基本属性
+        :param heading: 列标题
+        :param width: 列宽度
+        :param minWidth: 列最小宽度，宽度调整时不会小于此宽度，为0则不限
+        :param weight: 列宽度权重，控制其在宽度调整时被分配到宽度的比例，为0则宽度固定
+        :param adjuster: 宽度调节器，用于调节该列的宽度，放置在列标题的左侧或右侧，
+                         可以设置为'left', 'right'来指定，None则不设置，列宽无法调整
+        """
         # 不管是否需adjuster，所有的都放在Frame里，通过结构一致保证pack后的高度一致
         widget = tk.Frame(self.headerBar, bd=1, relief='groove')
         if adjuster and adjuster in ('left', 'right'):
@@ -65,18 +88,41 @@ class WidgetTable(tk.Frame):
             'widget': widget
         })
 
-    def newRow(self):
-        return tk.Frame(self.scrollableFrame, bg=self.bg)
+    @staticmethod
+    def insertCallbackToFirst(widget, sequence, callback):
+        """为控件bind事件和回调函数，但将回调函数添加到回调序列的第一位"""
+        callbacks_tcl = widget.bind(sequence)    # 获取当前回调函数序列，该序列是一个“Tcl命令字符串”
+        if callbacks_tcl:
+            widget.unbind(sequence)
+            widget.bind(sequence, callback)
+            callback_tcl = widget.bind(sequence)    # 获取新的回调函数的Tcl命令
+            widget.unbind(sequence)
+            new_callbacks_tcl = callback_tcl + '\n' + callbacks_tcl    # 连接两个Tcl命令
+            return widget.bind(sequence, new_callbacks_tcl)
+        else:
+            return widget.bind(sequence, callback)
 
-    def addRow(self, row: tk.Frame):
+    def newRow(self) -> WidgetRow:
+        """生成一个新行对象，将行内元素插入到该对象后addRow即可创建新行"""
+        return WidgetRow(self.scrollableFrame, bg=self.bg)
+
+    def addRow(self, row: WidgetRow):
+        """添加新行，row中的每一个对象将成为行内的一列"""
+        if type(row) is not WidgetRow:
+            raise TypeError('Only WidgetRow type (created by newRow() method) is accepted.')
         row_cells = list(row.children.values())
         for cell in row_cells:
             cell.pack(side='left')
+            # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
+            self.insertCallbackToFirst(cell, '<Button-1>', self.onRowSelect)
         row.pack(fill='x', expand=True)
+        # 为行对象本身绑定激活事件，因为控件周围可能会有空隙
+        self.insertCallbackToFirst(row, '<Button-1>', self.onRowSelect)
         self.rows.append(row)
         self.cells.append(row_cells)
 
     def clearRows(self):
+        """清除列表内的所有行，但保留列设置"""
         for row in self.rows:
             row.pack_forget()
             # row.destroy()
@@ -88,11 +134,20 @@ class WidgetTable(tk.Frame):
         self.rows = []
         self.cells = []
 
+    def onRowSelect(self, event):
+        if self.selectedRow:
+            self.selectedRow.setHighLight(False)
+        self.selectedRow = event.widget if type(event.widget) is WidgetRow else event.widget.master
+        self.selectedRow.setHighLight(True)
+
     def onClick(self, event):
-        """点击时获取焦点，以便让ComboBox等失去焦点"""
-        self.focus_force()
+        if self.selectedRow:
+            self.selectedRow.setHighLight(False)
+            self.selectedRow = None
+        self.focus_force()  # 获取焦点，以便让ComboBox等失去焦点
 
     def onAdjusterMouseMove(self, event):
+        """拖动Adjuster时调节列宽度"""
         if event.x == 0:    # y方向的动作没必要响应
             return
 
