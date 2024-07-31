@@ -83,7 +83,7 @@ class FontList(WidgetTable):
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EMBED'])
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EXTRACT'])
             row_item['source'].trace_add('write', self.onSourceChange)
-            row_item['sourceVarName'] = row_item['source']._name  # 保存这个_name用来在事件回调时查找触发控件
+            row_item['sourceVarName'] = row_item['source']._name    # 保存这个_name用来在事件回调时查找触发控件
             row_item['sourceBakValue'] = row_item['source'].get()
 
             # 添加行 ------------------

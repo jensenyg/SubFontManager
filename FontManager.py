@@ -10,27 +10,32 @@ from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
 from StatusBar import StatusBar
 
-APP_NAME = 'AssFontManager'
 
-
-def get_cache_dir(mkdir: bool = False):
+def get_cache_dir(mkdir: bool = False) -> Path:
+    """
+    获取一个可用于保存字体缓存的路径.
+    在Windows和Linux下可以保存在程序目录中，在macOS不能，所以保存到~/Library/Caches中
+    """
+    dir_name, app_name = os.path.split(sys.argv[0])    # 整个程序的路径和名称
     home = Path.home()
-    if sys.platform == 'darwin':  # macOS
-        cache_dir = home / "Library" / "Caches" / APP_NAME
+    if sys.platform == 'darwin' and not app_name.endswith('.py'):  # macOS且非调试阶段
+        cache_dir = home / "Library" / "Caches" / app_name
         if mkdir:
             cache_dir.mkdir(exist_ok=True)
     # elif sys.platform == 'win32':     # Windows
-    #     cache_dir = Path(os.getenv('LOCALAPPDATA', '')) / APP_NAME
+    #     cache_dir = Path(os.getenv('LOCALAPPDATA', '')) / app_name
     else:   # Linux
-        # cache_dir = home / ".cache" / APP_NAME
-        cache_dir = Path(os.path.dirname(sys.argv[0]))
+        # cache_dir = home / ".cache" / app_name
+        cache_dir = Path(dir_name)
     return cache_dir
 
 
 class FontManager:
+    """字体管理类，提供字体缓存、查询、子集化等操作"""
+
     LOCAL = 'local'
     SYSTEM = 'system'
-    cacheFilePath = get_cache_dir(mkdir=True) / 'fontcache.json'
+    cacheFilePath = get_cache_dir(mkdir=True) / 'fontcache.json'    # 字体缓存文件路径
 
     # 对于多字体的文件（如TTC），每个字体对象的名称分别保存在'fontnames'列表内
     # {fontpath: {'fontnames': [{'familynames': str, 'fullnames': str, 'style': str}], 'filesize': int}}

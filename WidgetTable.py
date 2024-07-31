@@ -29,12 +29,13 @@ class WidgetTable(tk.Frame):
         self.scrollableFrameId = self.canvas.create_window((0, 0), window=self.scrollableFrame, anchor=tk.NW)
 
         # 绑定鼠标滚轮事件
-        # Windows and MacOS
+        # Windows and macOS
         self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
         # Linux
         self.canvas.bind_all("<Button-4>", self.onMouseWheel)
         self.canvas.bind_all("<Button-5>", self.onMouseWheel)
 
+        self.canvas.bind("<Button-1>", self.onClick)
         self.canvas.bind("<Configure>", self.onResize)
 
         self.bind("<Configure>", self.onResize)
@@ -86,6 +87,10 @@ class WidgetTable(tk.Frame):
             widget.destroy()
         self.rows = []
         self.cells = []
+
+    def onClick(self, event):
+        """点击时获取焦点，以便让ComboBox等失去焦点"""
+        self.focus_force()
 
     def onAdjusterMouseMove(self, event):
         if event.x == 0:    # y方向的动作没必要响应
