@@ -283,7 +283,7 @@ class FontList(WidgetTable):
                 row_item['embed'].set(True)
                 row_item['modified'] = not row_item['modified']
                 self.setRowStatus(row_item)
-            row_item['embedWidget'].focus_force()   # 弹窗之后需手动取回焦点
+            row_item['embedWidget'].focus_set()   # 弹窗之后需手动取回焦点
             return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
 
         row_item['modified'] = not row_item['modified']
@@ -323,7 +323,7 @@ class FontList(WidgetTable):
         elif src_text == self.SrcCmbOptions['BROWSE']:
             filename = filedialog.askopenfilename(
                 filetypes=[("Font File", "*.ttf *.ttc *.otf"), ("All files", "*.*")])
-            cmb_src.focus_force()
+            cmb_src.focus_set()
             if not filename and row_item['sourceBakValue'] != cmb_src.placeholder:
                 filename = row_item['sourceBakValue']
         elif src_text == self.SrcCmbOptions['EXTRACT']:
@@ -335,7 +335,7 @@ class FontList(WidgetTable):
                 defaultextension=".ttf",
                 filetypes=[("TrueType Font", "*.ttf"), ("All files", "*.*")]
             )
-            cmb_src.focus_force()
+            cmb_src.focus_set()
             if file_path:
                 res = self.subtitleObj.extractFont(
                     row_item['embedName'], file_path, row_item['fontName'], row_item['style'])

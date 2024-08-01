@@ -15,7 +15,7 @@ class WidgetRow(tk.Frame):
 
 
 class WidgetTable(tk.Frame):
-    """由自定义控件组成的列表，并可以自定义列标题和调整宽度"""
+    """由自定义控件组成的列表，支持滚动，并可以自定义列标题和调整宽度"""
     def __init__(self, **kwargs):
         self.bd = 1
         self.bg = 'white'
@@ -42,15 +42,10 @@ class WidgetTable(tk.Frame):
             "<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
         self.scrollableFrameId = self.canvas.create_window((0, 0), window=self.scrollableFrame, anchor=tk.NW)
 
-        # 绑定鼠标滚轮事件
-        # Windows and macOS
-        self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)
-        # Linux
-        self.canvas.bind_all("<Button-4>", self.onMouseWheel)
-        self.canvas.bind_all("<Button-5>", self.onMouseWheel)
-
+        self.canvas.bind_all("<MouseWheel>", self.onMouseWheel)    # 绑定鼠标滚轮事件, Windows and macOS
+        self.canvas.bind_all("<Button-4>", self.onMouseWheel)   # 绑定鼠标滚轮事件, Linux
+        self.canvas.bind_all("<Button-5>", self.onMouseWheel)   # 绑定鼠标滚轮事件, Linux
         self.canvas.bind("<Button-1>", self.onClick)
-        self.canvas.bind("<Configure>", self.onResize)
 
         self.bind("<Configure>", self.onResize)
         self.columnconfigure(0, weight=1)
@@ -139,12 +134,13 @@ class WidgetTable(tk.Frame):
             self.selectedRow.setHighLight(False)
         self.selectedRow = event.widget if type(event.widget) is WidgetRow else event.widget.master
         self.selectedRow.setHighLight(True)
+        self.selectedRow.focus_set()
 
     def onClick(self, event):
         if self.selectedRow:
             self.selectedRow.setHighLight(False)
             self.selectedRow = None
-        self.focus_force()  # 获取焦点，以便让ComboBox等失去焦点
+        self.focus_set()  # 获取焦点，以便让ComboBox等失去焦点
 
     def onAdjusterMouseMove(self, event):
         """拖动Adjuster时调节列宽度"""

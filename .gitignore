@@ -1,7 +1,8 @@
-.idea
 __pycache__
-temp*.py
-fontcache.json
+.idea
 build
 dist
+venv
 *.spec
+temp*.py
+fontcache.json

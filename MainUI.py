@@ -90,7 +90,7 @@ class MainUI:
             filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
         if file_name:
             self.fileEntryText.set(file_name)
-        self.root.focus_force()
+        self.root.focus_set()
         self.onLoadBtn()
 
     def openSaveAs(self):
@@ -103,7 +103,7 @@ class MainUI:
         if file_path:
             self.dirEntry.delete(0, tk.END)
             self.dirEntry.insert(0, file_path)
-        self.root.focus_force()
+        self.root.focus_set()
 
     def onDrop(self, event):
         file_path = event.data.strip('{}')
@@ -136,10 +136,9 @@ class MainUI:
 
     def onApplyBtn(self, *args):
         res = self.fontList.applyEmbeding(self.dirEntry.get())
-        if res == 1:
-            self.root.focus_force()
-        elif self.dirEntry.isblank:    # 如果是覆盖原文件，则重新载入
+        self.root.focus_set()   # applyEmbeding中可能会有弹窗，需手动取回焦点
+        if res != 1 and self.dirEntry.isblank:    # 如果嵌入成功且是覆盖原文件，则重新载入
             self.onLoadBtn()
 
     def onDestroy(self, event):
-        self.stopEvent.set()
+        self.stopEvent.set()    # 设置停止事件，让可能正在检索字体的线程尽快停止
