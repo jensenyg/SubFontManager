@@ -68,14 +68,18 @@ class FontList(WidgetTable):
                 'sourceBakValue': None,     # 为了能够在某些临时的<...>值之后把原值填回去，而给原值保存的一个备份
                 'sourceOptions': list(self.SrcCmbOptions.values()),     # 文件源下拉列表内容
                 'sourceWidget': None,       # 文件源组合框控件，在添加行时填写
-                'state': tk.NORMAL if item['text'] else tk.DISABLED,    # 一些行内控件的禁用状态
+                'state': tk.NORMAL,         # 一些行内控件的禁用状态
                 'modified': False           # 字体内嵌状态是否被修改
             }
             self.itemList.append(row_item)
 
             if row_item['embedName']:  # 如果是内嵌字体
-                row_item['embed'].set(True)
-                row_item['subset'].set(False)  # 内嵌字体默认不勾选子集化
+                if item['text']:
+                    row_item['embed'].set(True)
+                else:   # 覆盖字数为0的内嵌字体默认不再勾选内嵌
+                    row_item['embed'].set(False)
+                    row_item['modified'] = True
+                row_item['subset'].set(False)    # 内嵌字体默认不勾选子集化
                 row_item['source'].set(self.EMBED_NAME_PREFIX + row_item['embedName'])
             else:
                 row_item['embed'].set(False)
@@ -256,7 +260,7 @@ class FontList(WidgetTable):
     @classmethod
     def setRowStatus(cls, rowItem: dict):
         """根据当前行的填写情况设置行内各控件的状态"""
-        if rowItem['text'] and rowItem['sourceBakValue'] != cls.Placeholder_NOSRC:
+        if rowItem['sourceBakValue'] != cls.Placeholder_NOSRC:
             rowItem['embedWidget'].configure(state=tk.NORMAL)
         else:
             if rowItem['embed'].get():
@@ -276,10 +280,14 @@ class FontList(WidgetTable):
             return
 
         char_count = len(row_item['text'])
-        if not row_item['embed'].get() and char_count > 99:
+        if not row_item['embed'].get() and (char_count > 99 or char_count == 0):
             self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
-            if messagebox.askokcancel('提示', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
-                                            f"将它内嵌可能会导致字幕文件体积显著增大，你确定要这样做？"):
+            if ((char_count > 99 and
+                    messagebox.askokcancel('提示', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
+                                           f"将它内嵌可能会导致字幕文件显著增大，你确定要这样做？"))
+                or char_count == 0 and
+                    messagebox.askokcancel('提示', f"{row_item['fontName']} 字体不覆盖任何字符，"
+                                           f"你确定要将它内嵌？")):
                 row_item['embed'].set(True)
                 row_item['modified'] = not row_item['modified']
                 self.setRowStatus(row_item)

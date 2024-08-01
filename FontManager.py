@@ -245,7 +245,7 @@ class FontManager:
 
     def findFont(self, fontName: str, style: str = None, _range=None) -> tuple:
         """
-        根据字体名称查找字体文件，先后搜索系统安装字体和当前目录字体
+        根据字体名称查找字体文件，先搜索系统安装字体再搜索当前目录字体
         :param fontName: 字体名
         :param style: 字体样式名，如regular, bold, italic, bold italic
         :param _range: 搜索范围限定，FontManager.LOCAL：在当前目录搜索，FontManager.SYSTEM：在系统字体中搜索，
@@ -256,19 +256,19 @@ class FontManager:
         style = style.lower() if style else 'regular'
         res = None
 
-        if _range is None or _range == self.LOCAL:
-            if fontName in self.localFontsFamilyNames:
-                font_family = self.localFontsFamilyNames[fontName]
-                res = font_family.get(style, font_family.get('regular', next(iter(font_family.values()))))
-            elif fontName in self.localFontsFullNames:
-                res = self.localFontsFullNames[fontName]
-
-        if (_range is None or _range == self.SYSTEM) and res is None:
+        if _range is None or _range == self.SYSTEM:
             if fontName in self.systemFontsFamilyNames:
                 font_family = self.systemFontsFamilyNames[fontName]
                 res = font_family.get(style, font_family.get('regular', next(iter(font_family.values()))))
             elif fontName in self.systemFontsFullNames:
                 res = self.systemFontsFullNames[fontName]
+
+        if (_range is None or _range == self.LOCAL) and res is None:
+            if fontName in self.localFontsFamilyNames:
+                font_family = self.localFontsFamilyNames[fontName]
+                res = font_family.get(style, font_family.get('regular', next(iter(font_family.values()))))
+            elif fontName in self.localFontsFullNames:
+                res = self.localFontsFullNames[fontName]
 
         return res if res else ('', 0)
 
