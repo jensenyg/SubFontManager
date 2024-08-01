@@ -28,6 +28,9 @@ class PlaceholderEntry(ttk.Entry):
     def get(self):
         return '' if self.isblank else super().get()
 
+    def getRaw(self):
+        return super().get()
+
     def insert(self, index, string):
         self.setStyle(True)
         super().insert(index, string)
@@ -47,8 +50,14 @@ class PlaceholderEntry(ttk.Entry):
 
 class PlaceholderCombobox(ttk.Combobox, PlaceholderEntry):
     def __init__(self, master=None, placeholder='', *args, **kwargs):
+        self.variable = kwargs.get('textvariable', tk.StringVar())
+        kwargs['textvariable'] = self.variable
         super().__init__(master, *args, **kwargs)
+
         self.isblank = True
+        self._currentValue = ''
+        self.lastValue = ''
+        self.variable.trace_add('write', self.onValueChange)
         self._init(placeholder)
         # 禁用鼠标滚轮响应
         self.bind('<MouseWheel>', self.onMouseWheel)
@@ -56,16 +65,17 @@ class PlaceholderCombobox(ttk.Combobox, PlaceholderEntry):
         self.bind('<Button-5>', self.onMouseWheel)  # For Linux systems
 
     def set(self, string):
-        self.setStyle(True)
-        super().set(string)
-        self.isblank = self.get() == ''
-
-    def setStyle(self, nomal: bool):
-        # 与输入框不同，组合框的占位符不设置斜体（"<无来源>"不斜体）
-        self['foreground'] = self.default_fg_color if nomal else self.placeholder_color
+        self.isblank = string == ''
+        self.setStyle(not self.isblank)
+        super().set(self.placeholder if self.isblank else string)
 
     def onMouseWheel(self, e):
         # 让事件跳过本控件，直接传给父控件，即不滚动下拉菜单，直接滚动整个列表
         self.master.event_generate('<MouseWheel>', delta=e.delta)
         # 返回break可以阻止事件进一步传播
         return 'break'
+
+    def onValueChange(self, *args):
+        # 总是保存一个旧值，为文件源中回填值使用
+        self.lastValue = self._currentValue
+        self._currentValue = self.get()

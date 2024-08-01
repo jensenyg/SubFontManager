@@ -13,8 +13,8 @@ from SubStationAlpha import SubStationAlpha
 class FontList(WidgetTable):
     SrcCmbOptions = {  # Source Combobox Options
         'EMBED': '<使用内嵌字体>',
-        'SRCDIR': '<使用同目录下的字体>',
         'SYSTEMFONT': '<使用系统字体>',
+        'SRCDIR': '<使用同目录下的字体>',
         'BROWSE': '<手动选择路径...>',
         'EXTRACT': '<提取内嵌字体...>'
     }
@@ -60,7 +60,7 @@ class FontList(WidgetTable):
             # 开始添加内嵌字体条目时，插入一个分隔行
             if not adding_embed_items and item['embedName'] != '':
                 adding_embed_items = True
-                self.addSeparateRow('以下为内嵌字体')
+                self.addSeparateRow('内嵌字体')
 
             # 保存行所有信息和变量的dict
             row_item = {
@@ -71,23 +71,18 @@ class FontList(WidgetTable):
                 'embed': tk.BooleanVar(),           # 是否内嵌
                 'embedWidget': None,                # embed复选框控件
                 'subset': tk.BooleanVar(),          # 是否子集化
+                'subsetWidget': None,               # 子集化复选框控件
                 'text': item['text'],               # 字体覆盖的文本
                 'source': tk.StringVar(),           # 文件源
                 'sourceVarName': None,      # 文件源变量的内部变量名，用于在事件回调时查找触发控件
-                'sourceBakValue': None,     # 为了能够在某些临时的<...>值之后把原值填回去，而给原值保存的一个备份
                 'sourceOptions': list(self.SrcCmbOptions.values()),     # 文件源下拉列表内容
                 'sourceWidget': None,       # 文件源组合框控件，在添加行时填写
-                'state': tk.NORMAL,         # 一些行内控件的禁用状态
                 'modified': False           # 字体内嵌状态是否被修改
             }
             self.itemList.append(row_item)
 
             if row_item['embedName']:  # 如果是内嵌字体
-                if item['text']:
-                    row_item['embed'].set(True)
-                else:   # 覆盖字数为0的内嵌字体默认不再勾选内嵌
-                    row_item['embed'].set(False)
-                    row_item['modified'] = True
+                row_item['embed'].set(True)
                 row_item['subset'].set(False)    # 内嵌字体默认不勾选子集化
                 row_item['source'].set(self.EMBED_NAME_PREFIX + row_item['embedName'])
             else:
@@ -99,7 +94,6 @@ class FontList(WidgetTable):
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EXTRACT'])
             row_item['source'].trace_add('write', self.onSourceChange)
             row_item['sourceVarName'] = row_item['source']._name    # 保存这个_name用来在事件回调时查找触发控件
-            row_item['sourceBakValue'] = row_item['source'].get()
 
             # 添加行和行内控件 --------------
             row_frame = self.newRow()
@@ -113,11 +107,12 @@ class FontList(WidgetTable):
             # 文本：字数统计
             tk.Label(row_frame, text=str(len(row_item['text'])) + ' ', anchor='e', bg=self.bg)
             # 复选框：子集化
-            tk.Checkbutton(row_frame, variable=row_item['subset'], state=row_item['state'], bg=self.bg)
+            row_item['subsetWidget'] = tk.Checkbutton(row_frame, variable=row_item['subset'], bg=self.bg)
+            row_item['subsetWidget'].bind("<Button-1>", self.onSubsetClicked)
             # 组合框：文件源
             row_item['sourceWidget'] = PlaceholderCombobox(
-                row_frame, placeholder=self.Placeholder_NOSRC, state=row_item['state'],
-                textvariable=row_item['source'], values=row_item['sourceOptions'], background=self.bg)
+                row_frame, placeholder=self.Placeholder_NOSRC, textvariable=row_item['source'],
+                values=row_item['sourceOptions'], background=self.bg)
             row_item['sourceWidget'].bind("<<ComboboxSelected>>", self.onSourceComboSelect)
 
             self.addRow(row_frame)
@@ -149,7 +144,7 @@ class FontList(WidgetTable):
                 continue
 
             # 文件是否存在以及文件内是否都包含指定的字体 -------------
-            src = row_item['source'].get()
+            src = row_item['sourceWidget'].get()
             index = None
             if src.startswith(self.EMBED_NAME_PREFIX):
                 filename = src[len(self.EMBED_NAME_PREFIX):]
@@ -182,7 +177,7 @@ class FontList(WidgetTable):
         # 检查大字体的子集化是否勾选 -------------
         for row_item in self.itemList:
             if not row_item['embedName'] and not row_item['subset'].get()\
-                    and os.path.getsize(row_item['source'].get()) > 1024000:    # 不子集化且文件>100K
+                    and os.path.getsize(row_item['sourceWidget'].get()) > 1024000:    # 不子集化且文件>100K
                 warnings.append(f"{row_item['fontName']} {row_item['style']} 的文件源较大且未选择子集化，")
         if warnings:
             if not messagebox.askyesno("提示", "%s\n将它%s直接内嵌可能会导致字幕文件体积显著增大，你确定要这样做？" %
@@ -192,7 +187,7 @@ class FontList(WidgetTable):
         # 执行内嵌 -------------
         for row_item in self.itemList:
             if row_item['embed'].get():
-                src = row_item['source'].get()
+                src = row_item['sourceWidget'].get()
                 # 读取文件 -------------
                 if src.startswith(self.EMBED_NAME_PREFIX):  # 内嵌字体源
                     if not row_item['subset'].get():  # 已经内嵌且不需要子集化的字体，直接跳过
@@ -269,13 +264,18 @@ class FontList(WidgetTable):
     @classmethod
     def setRowStatus(cls, rowItem: dict):
         """根据当前行的填写情况设置行内各控件的状态"""
-        if rowItem['sourceBakValue'] != cls.Placeholder_NOSRC:
-            rowItem['embedWidget'].configure(state=tk.NORMAL)
+        if rowItem['sourceWidget'].isblank:
+            rowItem['embed'].set(False)    # 文件源为空时强制取消内嵌勾选
+            rowItem['embedWidget'].configure(state=tk.DISABLED)    # 并禁用内嵌复选框
         else:
-            if rowItem['embed'].get():
-                rowItem['embed'].set(False)
-                rowItem['modified'] = not rowItem['modified']
-            rowItem['embedWidget'].configure(state=tk.DISABLED)
+            rowItem['embedWidget'].configure(state=tk.NORMAL)
+        # 条目修改状态逻辑
+        if rowItem['embedName']:
+            rowItem['modified'] = (not rowItem['embed'].get() or rowItem['subset'].get()
+                                   or rowItem['sourceWidget'].get() != cls.EMBED_NAME_PREFIX + rowItem['embedName'])
+        else:
+            rowItem['modified'] = rowItem['embed'].get()
+        # 根据修改状态设置粗体
         rowItem['fontNameWidget'].configure(font=tkfont.Font(weight='bold' if rowItem['modified'] else 'normal'))
 
     def onEmbedClicked(self, event):
@@ -288,36 +288,46 @@ class FontList(WidgetTable):
         else:
             return
 
+        checked = not row_item['embed'].get()
         char_count = len(row_item['text'])
         if not row_item['embed'].get() and (char_count > 99 or char_count == 0):
             self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
-            if ((char_count > 99 and
-                    messagebox.askokcancel('提示', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
-                                           f"将它内嵌可能会导致字幕文件显著增大，你确定要这样做？"))
-                or char_count == 0 and
-                    messagebox.askokcancel('提示', f"{row_item['fontName']} 字体不覆盖任何字符，"
-                                           f"你确定要将它内嵌？")):
-                row_item['embed'].set(True)
-                row_item['modified'] = not row_item['modified']
-                self.setRowStatus(row_item)
+            checked = ((char_count > 99 and messagebox.askokcancel(
+                '提示', f"{row_item['fontName']} 字体覆盖了{char_count}个字符，"
+                        f"将它内嵌可能会导致字幕文件显著增大，你确定要这样做？"))
+                       or (char_count == 0 and messagebox.askokcancel(
+                        '提示', f"{row_item['fontName']} 字体不覆盖任何字符，你确定要将它内嵌？")))
             row_item['embedWidget'].focus_set()   # 弹窗之后需手动取回焦点
-            return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
 
-        row_item['modified'] = not row_item['modified']
-        self.setRowStatus(row_item)
+        # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
+        row_item['embed'].set(checked)
+        self.setRowStatus(row_item)    # 当内嵌复选框状态变化时，重设置行状态
+        return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
+
+    def onSubsetClicked(self, event):
+        # 寻找响应的控件
+        for row_item in self.itemList:
+            if row_item['subsetWidget'] == event.widget:
+                if row_item['embedWidget'].cget('state') == 'disabled':    # 禁用的行不用响应
+                    return
+                break
+        else:
+            return
+        # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
+        row_item['subset'].set(not row_item['subset'].get())
+        self.setRowStatus(row_item)    # 当子集复选框状态变化时，重设置行状态
+        return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
 
     def onSourceChange(self, *args):
         # 寻找响应的控件，这里的args[0]就是StringVar的_name
         for row_item in self.itemList:
             if row_item['sourceVarName'] == args[0]:
+                if row_item['sourceWidget'] is None:    # 有时在控件初始化阶段也会因值初始化而触发此函数
+                    return
                 break
         else:
             return
-        new_value = row_item['source'].get()
-        # 浏览和提取两种操作的内容文本是临时的，此时并不覆盖备份值，备份值将用于回填原值
-        if new_value not in (self.SrcCmbOptions['BROWSE'], self.SrcCmbOptions['EXTRACT']):
-            row_item['sourceBakValue'] = new_value
-        self.setRowStatus(row_item)
+        self.setRowStatus(row_item)    # 当文件源变化时，重设置行状态
 
     def onSourceComboSelect(self, event):
         cmb_src = event.widget
@@ -329,21 +339,22 @@ class FontList(WidgetTable):
             return
 
         filename = ''
-        src_text = cmb_src.get()
-        if src_text == self.SrcCmbOptions['EMBED']:
+        src_text = cmb_src.getRaw()
+
+        if src_text == self.SrcCmbOptions['EMBED']:         # 内嵌字体
             if row_item['embedName']:
                 filename = self.EMBED_NAME_PREFIX + row_item['embedName']
-        elif src_text == self.SrcCmbOptions['SRCDIR']:
-            filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.LOCAL)[0]
-        elif src_text == self.SrcCmbOptions['SYSTEMFONT']:
+        elif src_text == self.SrcCmbOptions['SYSTEMFONT']:  # 系统字体
             filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.SYSTEM)[0]
-        elif src_text == self.SrcCmbOptions['BROWSE']:
+        elif src_text == self.SrcCmbOptions['SRCDIR']:      # 同目录下的字体
+            filename = self.fontMgr.findFont(row_item['fontName'], _range=FontManager.LOCAL)[0]
+        elif src_text == self.SrcCmbOptions['BROWSE']:      # 手动选择路径
             filename = filedialog.askopenfilename(
                 filetypes=[("Font File", "*.ttf *.ttc *.otf"), ("All files", "*.*")])
-            cmb_src.focus_set()
-            if not filename and row_item['sourceBakValue'] != cmb_src.placeholder:
-                filename = row_item['sourceBakValue']
-        elif src_text == self.SrcCmbOptions['EXTRACT']:
+            cmb_src.focus_force()
+            if not filename:
+                filename = row_item['sourceWidget'].lastValue
+        elif src_text == self.SrcCmbOptions['EXTRACT']:     # 提取内嵌字体
             if not row_item['embedName']:  # 正常情况下不会进入该分支
                 return
             file_path = filedialog.asksaveasfilename(
@@ -352,17 +363,16 @@ class FontList(WidgetTable):
                 defaultextension=".ttf",
                 filetypes=[("TrueType Font", "*.ttf"), ("All files", "*.*")]
             )
-            cmb_src.focus_set()
+            cmb_src.master.focus_set()
             if file_path:
                 res = self.subtitleObj.extractFont(
                     row_item['embedName'], file_path, row_item['fontName'], row_item['style'])
                 if res != 0:
                     raise Exception(f'保存到{file_path}文件失败!')
-            if row_item['sourceBakValue'] != cmb_src.placeholder:
-                filename = row_item['sourceBakValue']
+            filename = row_item['sourceWidget'].lastValue
 
         cmb_src.set(filename)
         cmb_src.selection_clear()   # 清除组合框中的选区，否则框内会有半截选区
         cmb_src.icursor(tk.END)     # 将光标移动到末尾
-        if not filename:    # 如果当前显示的占位符（"无来源"），则移走焦点，否则占位符不显示
-            self.focus_set()
+        if not filename:    # 如果为空，则移走焦点，否则占位符（"<无来源>"）不显示
+            cmb_src.master.focus_set()

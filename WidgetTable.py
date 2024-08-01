@@ -116,11 +116,11 @@ class WidgetTable(tk.Frame):
         self.rows.append(row)
         self.cells.append(row_cells)
 
-    def addSeparateRow(self, sepText: str = None, padding: tuple = (2, 5, 3, 15), lineLength: int = 300):
+    def addSeparateRow(self, sepText: str = None, padding: tuple = (3, 5, 4, 33), lineLength: int = 300):
         """
         插入分隔行，包含一段文字和一条分隔线
         :param sepText: 行内文字
-        :param padding: 文字四周的空白宽度，顺序为：上右下左
+        :param padding: 文字四周的空白宽度，顺序为：上右下左，其中左为跟左边框的距离，右为跟右侧线和左侧线的距离
         :param lineLength: 分隔线的长度
         """
         # 绘制一个Canvas作为分隔行
@@ -130,12 +130,13 @@ class WidgetTable(tk.Frame):
             sep_row.create_text(padding[3], padding[0], text=sepText, anchor=tk.NW,
                                 fill="grey", font=tkfont.Font(family="微软雅黑", slant="italic"))
         x0, y0, x1, y1 = sep_row.bbox("all")  # 获取所有内容的边界框
-        height = y1 - y0 + padding[0] + padding[2]
-        sep_row.config(height=height)
+        text_height = y1 - y0 + padding[0] + padding[2]
+        sep_row.config(height=text_height)
         if lineLength:    # 绘制分隔线
-            width = x1 - x0 + padding[1] + padding[3]
-            center_y = height / 2
-            sep_row.create_line(width, center_y, lineLength, center_y, fill="grey")
+            text_width = x1 - x0 + padding[1] + padding[3]
+            center_y = text_height / 2
+            sep_row.create_line(5, center_y, padding[3] - padding[1], center_y, fill="grey")    # 绘制左侧线
+            sep_row.create_line(text_width - 2, center_y, lineLength, center_y, fill="grey")    # 绘制右侧线
         sep_row.pack(fill='x', expand=True)
         self.rows.append(sep_row)
 
