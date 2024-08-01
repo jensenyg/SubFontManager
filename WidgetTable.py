@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, font as tkfont
 
 
 class WidgetRow(tk.Frame):
@@ -31,9 +31,9 @@ class WidgetTable(tk.Frame):
         self.selectedRow = None
 
         # 可滚动表 ----------------
-        self.canvas = tk.Canvas(self, bg=self.bg)
+        self.canvas = tk.Canvas(self, bg=self.bg, highlightthickness=0)
         self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.scrollbar.set, highlightthickness=0)
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
         self.canvas.grid(row=1, column=0, sticky=tk.NSEW)
         self.scrollbar.grid(row=0, column=1, rowspan=2, sticky=tk.NS)
 
@@ -84,7 +84,7 @@ class WidgetTable(tk.Frame):
         })
 
     @staticmethod
-    def insertCallbackToFirst(widget, sequence, callback):
+    def bindCallbackToFirst(widget, sequence, callback):
         """为控件bind事件和回调函数，但将回调函数添加到回调序列的第一位"""
         callbacks_tcl = widget.bind(sequence)    # 获取当前回调函数序列，该序列是一个“Tcl命令字符串”
         if callbacks_tcl:
@@ -109,12 +109,35 @@ class WidgetTable(tk.Frame):
         for cell in row_cells:
             cell.pack(side='left')
             # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
-            self.insertCallbackToFirst(cell, '<Button-1>', self.onRowSelect)
+            self.bindCallbackToFirst(cell, '<Button-1>', self.onRowSelect)
         row.pack(fill='x', expand=True)
         # 为行对象本身绑定激活事件，因为控件周围可能会有空隙
-        self.insertCallbackToFirst(row, '<Button-1>', self.onRowSelect)
+        self.bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
         self.rows.append(row)
         self.cells.append(row_cells)
+
+    def addSeparateRow(self, sepText: str = None, padding: tuple = (2, 5, 3, 15), lineLength: int = 300):
+        """
+        插入分隔行，包含一段文字和一条分隔线
+        :param sepText: 行内文字
+        :param padding: 文字四周的空白宽度，顺序为：上右下左
+        :param lineLength: 分隔线的长度
+        """
+        # 绘制一个Canvas作为分隔行
+        sep_row = tk.Canvas(self.scrollableFrame, bg=self.bg, highlightthickness=0)
+        if sepText:    # 绘制字体
+            # 中文斜体需要字体支持，可能无法显示
+            sep_row.create_text(padding[3], padding[0], text=sepText, anchor=tk.NW,
+                                fill="grey", font=tkfont.Font(family="微软雅黑", slant="italic"))
+        x0, y0, x1, y1 = sep_row.bbox("all")  # 获取所有内容的边界框
+        height = y1 - y0 + padding[0] + padding[2]
+        sep_row.config(height=height)
+        if lineLength:    # 绘制分隔线
+            width = x1 - x0 + padding[1] + padding[3]
+            center_y = height / 2
+            sep_row.create_line(width, center_y, lineLength, center_y, fill="grey")
+        sep_row.pack(fill='x', expand=True)
+        self.rows.append(sep_row)
 
     def clearRows(self):
         """清除列表内的所有行，但保留列设置"""

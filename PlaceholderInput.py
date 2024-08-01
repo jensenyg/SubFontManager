@@ -23,7 +23,7 @@ class PlaceholderEntry(ttk.Entry):
             self.configure(font=tkfont.Font(slant='roman'))
         else:
             self['foreground'] = self.placeholder_color
-            self.configure(font=tkfont.Font(slant='italic'))
+            self.configure(font=tkfont.Font(slant='italic'))    # 中文斜体需要字体支持，可能无法显示
 
     def get(self):
         return '' if self.isblank else super().get()
@@ -59,6 +59,10 @@ class PlaceholderCombobox(ttk.Combobox, PlaceholderEntry):
         self.setStyle(True)
         super().set(string)
         self.isblank = self.get() == ''
+
+    def setStyle(self, nomal: bool):
+        # 与输入框不同，组合框的占位符不设置斜体（"<无来源>"不斜体）
+        self['foreground'] = self.default_fg_color if nomal else self.placeholder_color
 
     def onMouseWheel(self, e):
         # 让事件跳过本控件，直接传给父控件，即不滚动下拉菜单，直接滚动整个列表

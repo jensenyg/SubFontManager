@@ -267,7 +267,7 @@ class SubStationAlpha:
             fontname, bold, italic = self.styleList.getStyleFields(style, ('fontname', 'bold', 'italic'))
             self.__addTextToDict(allFontsDict, fontname, self.__getStyleText(bold, italic), '')
 
-        # 收集Dialogue中出现的字体
+        # 收集Dialogue中出现的字体 ---------
         inlineStyle_ptn = re.compile(r'\{.*?\}')    # 用于查找行内样式{}的内容
         inlineFont_ptn = re.compile(r'\\fn(.*?)[\\,\}]')    # 用于查找{}内的\fn内容并提取字体名
         inlineBold_ptn = re.compile(r'\\b(\d)')      # 用于查找{}内的\b并提取后面的数字
@@ -280,7 +280,7 @@ class SubStationAlpha:
                 continue
             fontname, bold, italic = res
             font_style = self.__getStyleText(bold, italic)
-            # 查找行内样式{}
+            # 查找行内样式{} ---------
             match_iter = inlineStyle_ptn.finditer(text)
             pos = 0    # 文字位置指针
             for m_obj in match_iter:
@@ -288,18 +288,18 @@ class SubStationAlpha:
                 self.__addTextToDict(allFontsDict, fontname, font_style, text[pos: m_obj.start()])
                 pos = m_obj.end()
                 inline_style_str = m_obj.group().lower()    # {}以及内部的文字
-                # 处理{}中的\fn
+                # 处理{}中的\fn ---------
                 pos2 = inline_style_str.rfind('\\fn')
                 if pos2 != -1:
                     m = inlineFont_ptn.match(inline_style_str[pos2:])
                     fontname = m.group(1)    # 提取\fn后面的字体名
-                # 处理{}中的\b
+                # 处理{}中的\b ----------
                 pos2 = inline_style_str.rfind('\\b')
                 if pos2 != -1:
                     m = inlineBold_ptn.match(inline_style_str[pos2:])
                     if m:
                         bold = m.group(1)    # 提取\b后面的一个数字
-                # 处理{}中的\i
+                # 处理{}中的\i ----------
                 pos2 = inline_style_str.rfind('\\i')
                 if pos2 != -1:
                     m = inlineItalic_ptn.match(inline_style_str[pos2:])
@@ -309,7 +309,7 @@ class SubStationAlpha:
             # 将最后一个{}（或没有）之后的文字都划归给最后一个样式
             self.__addTextToDict(allFontsDict, fontname, font_style, text[pos:])
 
-        # 加入内嵌的字体
+        # 加入内嵌的字体 ---------
         embed_fonts_included = set()
         for fontname, font_styles in allFontsDict.items():
             for font_style, style_obj in font_styles.items():
@@ -317,7 +317,7 @@ class SubStationAlpha:
                 style_obj['embedName'] = embedName
                 if embedName:
                     embed_fonts_included.add((embedName, index))
-        # 查找未被引用的内嵌字体
+        # 查找未被引用的内嵌字体 ---------
         for fontname, font_codes in self.fontList.items():
             for i in range(len(font_codes)):
                 if (fontname, i) not in embed_fonts_included:   # 如果文字未被使用，仍需要加入一个条目
@@ -326,7 +326,7 @@ class SubStationAlpha:
                         allFontsDict[font_names[i]['fullnames'][0]] = \
                             {font_names[i]['style']: {'text': '', 'embedName': fontname}}
 
-        # 构造一个font info列表以供返回
+        # 构造一个font info列表以供返回 ---------
         font_info = []
         for fontname, font_styles in allFontsDict.items():
             for font_style, style_obj in font_styles.items():

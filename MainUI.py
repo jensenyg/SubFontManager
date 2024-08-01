@@ -42,7 +42,7 @@ class MainUI:
         saveas_frame.grid(row=2, column=1, columnspan=3, sticky="ew")
         ttk.Radiobutton(saveas_frame, text="另存为:", variable=self.saveMode, value=1, command=self.onSwitchSaveMode)\
             .pack(side='left', padx=5, pady=gapy)
-        self.dirEntry = PlaceholderEntry(saveas_frame, placeholder="Leave blank to save to source directory.")
+        self.dirEntry = PlaceholderEntry(saveas_frame, placeholder="留空则保存到源路径.")
         self.dirEntry.configure(state=tk.DISABLED)
         self.dirEntry.pack(side='left', padx=(5, 2), pady=(1, 0), fill="x", expand=True)
         self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openSaveAs)
@@ -52,13 +52,13 @@ class MainUI:
         file_frame.columnconfigure(1, weight=1)
 
         # 字体列表和"载入"按钮 ---------------
-        fontlist_frame = ttk.Frame(root)
+        fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
         fontlist_frame.grid(row=1, padx=5, sticky="we")
         ttk.Label(fontlist_frame, text="字幕中包含的字体:").pack(side='left', padx=5)
         self.loadBtn = tk.Button(fontlist_frame, text="载入", width=6, command=self.onLoadBtn, state=tk.DISABLED)
         self.loadBtn.pack(side='right', padx=5)
 
-        self.fontList = FontList(root)
+        self.fontList = FontList(root)    # 字体列表
         self.fontList.grid(row=2, padx=10, pady=5, sticky="nswe")
 
         # 底部的状态栏和应用关闭按钮区 --------------
@@ -135,7 +135,7 @@ class MainUI:
         # StatusBar.set('文件载入完成.', 3)
 
     def onApplyBtn(self, *args):
-        res = self.fontList.applyEmbeding(self.dirEntry.get())
+        res = self.fontList.applyEmbedding(self.dirEntry.get())
         self.root.focus_set()   # applyEmbeding中可能会有弹窗，需手动取回焦点
         if res != 1 and self.dirEntry.isblank:    # 如果嵌入成功且是覆盖原文件，则重新载入
             self.onLoadBtn()

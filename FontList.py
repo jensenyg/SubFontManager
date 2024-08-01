@@ -38,7 +38,8 @@ class FontList(WidgetTable):
         self.addColumn('文件源', weight=2, minWidth=80, adjuster='left')
 
     def loadSubtitle(self, subObj: SubStationAlpha = None):
-        # 清空列表
+        """载入字体文件并将其中的字体和信息添加到列表"""
+        # 清空列表 -------
         self.subtitleObj = subObj
         if self.itemList:
             self.itemList.clear()
@@ -52,7 +53,15 @@ class FontList(WidgetTable):
         if not fontList:
             return
 
+        fontList.sort(key=lambda x: x['embedName'] != '')    # 将内嵌字体排到列表后面
+        adding_embed_items = False
+
         for item in fontList:
+            # 开始添加内嵌字体条目时，插入一个分隔行
+            if not adding_embed_items and item['embedName'] != '':
+                adding_embed_items = True
+                self.addSeparateRow('以下为内嵌字体')
+
             # 保存行所有信息和变量的dict
             row_item = {
                 'fontName': item['fontname'],       # 字体名
@@ -117,7 +126,7 @@ class FontList(WidgetTable):
         self.update_idletasks()  # 强制重绘，否则可能导致布局错误
         self.onResize()
 
-    def applyEmbeding(self, savePath: str = None) -> int:
+    def applyEmbedding(self, savePath: str = None) -> int:
         """
         应用字体内嵌
         :param savePath: 保存路径，缺省则写入到源文件
