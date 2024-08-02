@@ -4,12 +4,12 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, font as tkfont
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
-from ui import WidgetTable, PlaceholderCombobox
+import ui
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
 
 
-class FontList(WidgetTable):
+class FontList(ui.WidgetTable):
     SrcCmbOptions = {  # Source Combobox Options
         'EMBED': '<使用内嵌字体>',
         'SYSTEMFONT': '<使用系统字体>',
@@ -109,7 +109,7 @@ class FontList(WidgetTable):
             row_item['subsetWidget'] = tk.Checkbutton(row_frame, variable=row_item['subset'], bg=self.bg)
             row_item['subsetWidget'].bind("<Button-1>", self.onSubsetClicked)
             # 组合框：文件源
-            row_item['sourceWidget'] = PlaceholderCombobox(
+            row_item['sourceWidget'] = ui.PlaceholderCombobox(
                 row_frame, placeholder=self.Placeholder_NOSRC, textvariable=row_item['source'],
                 values=row_item['sourceOptions'], background=self.bg)
             row_item['sourceWidget'].bind("<<ComboboxSelected>>", self.onSourceComboSelect)
@@ -275,7 +275,8 @@ class FontList(WidgetTable):
         else:
             rowItem['modified'] = rowItem['embed'].get()
         # 根据修改状态设置粗体
-        rowItem['fontNameWidget'].configure(font=tkfont.Font(weight='bold' if rowItem['modified'] else 'normal'))
+        rowItem['fontNameWidget'].configure(font=tkfont.Font(
+            weight=tkfont.BOLD if rowItem['modified'] else tkfont.NORMAL))
 
     def onEmbedClicked(self, event):
         # 寻找响应的控件

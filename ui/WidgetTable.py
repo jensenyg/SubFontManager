@@ -66,12 +66,12 @@ class WidgetTable(tk.Frame):
         widget = tk.Frame(self.headerBar, bd=1, relief='groove')
         if adjuster and adjuster in ('left', 'right'):
             adjuster_frame = tk.Frame(widget, width=self.adjusterWidth, cursor='sb_h_double_arrow')
-            adjuster_frame.pack(side=adjuster, fill='y')
+            adjuster_frame.pack(side=adjuster, fill=tk.Y)
             adjuster_frame.bind("<B1-Motion>", self.onAdjusterMouseMove)
         tk.Label(widget, text=heading).pack()
         # 通过pack方法，让headerBar Frame自适应控件的尺寸，因为place方法无法自适应，
         # 当place覆盖pack的布局时，仍会保留其控件尺寸
-        widget.pack(side='left')
+        widget.pack(side=tk.LEFT)
 
         self.headers.append({
             'heading': heading,
@@ -107,10 +107,10 @@ class WidgetTable(tk.Frame):
             raise TypeError('Only WidgetRow type (created by newRow() method) is accepted.')
         row_cells = list(row.children.values())
         for cell in row_cells:
-            cell.pack(side='left')
+            cell.pack(side=tk.LEFT)
             # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
             self.bindCallbackToFirst(cell, '<Button-1>', self.onRowSelect)
-        row.pack(fill='x', expand=True)
+        row.pack(fill=tk.X, expand=True)
         # 为行对象本身绑定激活事件，因为控件周围可能会有空隙
         self.bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
         self.rows.append(row)
@@ -128,7 +128,7 @@ class WidgetTable(tk.Frame):
         if sepText:    # 绘制字体
             # 中文斜体需要字体支持，可能无法显示
             sep_row.create_text(padding[3], padding[0], text=sepText, anchor=tk.NW,
-                                fill="grey", font=tkfont.Font(family="微软雅黑", slant="italic"))
+                                fill="grey", font=tkfont.Font(slant=tkfont.ITALIC))
         x0, y0, x1, y1 = sep_row.bbox("all")  # 获取所有内容的边界框
         text_height = y1 - y0 + padding[0] + padding[2]
         sep_row.config(height=text_height)
@@ -137,7 +137,7 @@ class WidgetTable(tk.Frame):
             center_y = text_height / 2
             sep_row.create_line(5, center_y, padding[3] - padding[1], center_y, fill="grey")    # 绘制左侧线
             sep_row.create_line(text_width - 2, center_y, lineLength, center_y, fill="grey")    # 绘制右侧线
-        sep_row.pack(fill='x', expand=True)
+        sep_row.pack(fill=tk.X, expand=True)
         self.rows.append(sep_row)
 
     def clearRows(self):

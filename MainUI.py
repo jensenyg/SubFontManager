@@ -1,11 +1,12 @@
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, font as tkfont
 from tkinterdnd2 import DND_FILES
-from ui import PlaceholderEntry, StatusBar
+import ui
 from FontList import FontList
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
+from ConfigWindow import ConfigWindow
 
 
 class MainUI:
@@ -40,12 +41,12 @@ class MainUI:
         saveas_frame = ttk.Frame(file_frame)
         saveas_frame.grid(row=2, column=1, columnspan=3, sticky="ew")
         ttk.Radiobutton(saveas_frame, text="另存为:", variable=self.saveMode, value=1, command=self.onSwitchSaveMode)\
-            .pack(side='left', padx=5, pady=gapy)
-        self.dirEntry = PlaceholderEntry(saveas_frame, placeholder="留空则保存到源路径.")
+            .pack(side=tk.LEFT, padx=5, pady=gapy)
+        self.dirEntry = ui.PlaceholderEntry(saveas_frame, placeholder="留空则保存到源路径.")
         self.dirEntry.configure(state=tk.DISABLED)
-        self.dirEntry.pack(side='left', padx=(5, 2), pady=(1, 0), fill="x", expand=True)
+        self.dirEntry.pack(side=tk.LEFT, padx=(5, 2), pady=(1, 0), fill=tk.X, expand=True)
         self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openSaveAs)
-        self.openDirBtn.pack(side='right', pady=(0, 2))
+        self.openDirBtn.pack(side=tk.RIGHT, pady=(0, 2))
 
         # 配置列权重，使输入框能够随窗口大小变化而变化
         file_frame.columnconfigure(1, weight=1)
@@ -53,9 +54,9 @@ class MainUI:
         # 字体列表和"载入"按钮 ---------------
         fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
         fontlist_frame.grid(row=1, padx=5, sticky="we")
-        ttk.Label(fontlist_frame, text="字幕中包含的字体:").pack(side='left', padx=5)
+        ttk.Label(fontlist_frame, text="字幕中包含的字体:").pack(side=tk.LEFT, padx=5)
         self.loadBtn = tk.Button(fontlist_frame, text="载入", width=6, command=self.onLoadBtn, state=tk.DISABLED)
-        self.loadBtn.pack(side='right', padx=5)
+        self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
         self.fontList = FontList(root)    # 字体列表
         self.fontList.grid(row=2, padx=10, pady=5, sticky="nswe")
@@ -65,9 +66,11 @@ class MainUI:
         bottom_frame.grid(row=3, padx=10, pady=(0, 10), sticky="ew")
         status_label = ttk.Label(bottom_frame)
         status_label.grid(row=0, column=0, padx=(0, 5), sticky='ew')
-        StatusBar.setLabel(status_label)
-        ttk.Button(bottom_frame, text="应用", command=self.onApplyBtn, width=5).grid(row=0, column=1, padx=5)
-        ttk.Button(bottom_frame, text="关闭", command=root.destroy, width=5).grid(row=0, column=2, padx=5)
+        ui.StatusBar.setLabel(status_label)
+
+        ui.FlatButton(bottom_frame, text='⚙', command=self.showConfig).grid(row=0, column=1, padx=10)
+        ttk.Button(bottom_frame, text="应用", width=5, command=self.onApplyBtn).grid(row=0, column=2, padx=5)
+        ttk.Button(bottom_frame, text="关闭", width=5, command=root.destroy).grid(row=0, column=3, padx=5)
         bottom_frame.columnconfigure(0, weight=1)
 
         # 配置列权重，使列表框能够随窗口大小变化而变化
@@ -89,7 +92,7 @@ class MainUI:
             filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
         if file_name:
             self.fileEntryText.set(file_name)
-        self.root.focus_set()
+        self.root.focus_force()    # 不用force有时焦点抢不回来
         self.onLoadBtn()
 
     def openSaveAs(self):
@@ -102,7 +105,7 @@ class MainUI:
         if file_path:
             self.dirEntry.delete(0, tk.END)
             self.dirEntry.insert(0, file_path)
-        self.root.focus_set()
+        self.root.focus_force()    # 不用force有时焦点抢不回来
 
     def onDrop(self, event):
         file_path = event.data.strip('{}')
@@ -138,6 +141,9 @@ class MainUI:
         self.root.focus_set()   # applyEmbeding中可能会有弹窗，需手动取回焦点
         if res != 1 and self.dirEntry.isblank:    # 如果嵌入成功且是覆盖原文件，则重新载入
             self.onLoadBtn()
+
+    def showConfig(self, event):
+        ConfigWindow(self.root)
 
     def onDestroy(self, event):
         self.stopEvent.set()    # 设置停止事件，让可能正在检索字体的线程尽快停止

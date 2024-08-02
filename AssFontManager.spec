@@ -11,7 +11,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['unittest', 'email', 'pydoc', 'http', 'pdb', 'cProfile', 'cgi', 'cgitb', 'asyncio'],
+    excludes=['unittest', 'pydoc', 'pdb', 'cProfile', 'cgi', 'cgitb', 'asyncio'],
     noarchive=False,
     optimize=0,
 )

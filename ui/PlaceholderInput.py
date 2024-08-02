@@ -20,10 +20,10 @@ class PlaceholderEntry(ttk.Entry):
     def setStyle(self, nomal: bool):
         if nomal:
             self['foreground'] = self.default_fg_color
-            self.configure(font=tkfont.Font(slant='roman'))
+            self.configure(font=tkfont.Font(slant=tkfont.ROMAN))
         else:
             self['foreground'] = self.placeholder_color
-            self.configure(font=tkfont.Font(slant='italic'))    # 中文斜体需要字体支持，可能无法显示
+            self.configure(font=tkfont.Font(slant=tkfont.ITALIC))    # 中文斜体需要字体支持，可能无法显示
 
     def get(self):
         return '' if self.isblank else super().get()
