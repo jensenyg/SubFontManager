@@ -4,8 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, font as tkfont
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
-from PlaceholderInput import PlaceholderCombobox
-from WidgetTable import WidgetTable
+from ui import WidgetTable, PlaceholderCombobox
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
 

@@ -2,9 +2,8 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
+from ui import PlaceholderEntry, StatusBar
 from FontList import FontList
-from PlaceholderInput import PlaceholderEntry
-from StatusBar import StatusBar
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
 

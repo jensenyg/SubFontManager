@@ -8,7 +8,7 @@ from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
 from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
-from StatusBar import StatusBar
+from ui import StatusBar
 
 
 def get_cache_dir(mkdir: bool = False) -> Path:
