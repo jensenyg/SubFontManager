@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 import sys
 import site
 
@@ -6,7 +7,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[(site.getsitepackages()[0] + '/tkinterdnd2', 'tkinterdnd2')],
+    datas=[(os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

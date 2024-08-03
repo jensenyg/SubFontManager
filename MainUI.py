@@ -68,7 +68,7 @@ class MainUI:
         status_label.grid(row=0, column=0, padx=(0, 5), sticky='ew')
         ui.StatusBar.setLabel(status_label)
 
-        ui.FlatButton(bottom_frame, text='⚙', command=self.showConfig).grid(row=0, column=1, padx=10)
+        ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig).grid(row=0, column=1, padx=10)
         ttk.Button(bottom_frame, text="应用", width=5, command=self.onApplyBtn).grid(row=0, column=2, padx=5)
         ttk.Button(bottom_frame, text="关闭", width=5, command=root.destroy).grid(row=0, column=3, padx=5)
         bottom_frame.columnconfigure(0, weight=1)

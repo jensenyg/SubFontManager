@@ -64,7 +64,7 @@ class WidgetTable(tk.Frame):
         """
         # 不管是否需adjuster，所有的都放在Frame里，通过结构一致保证pack后的高度一致
         widget = tk.Frame(self.headerBar, bd=1, relief='groove')
-        if adjuster and adjuster in ('left', 'right'):
+        if adjuster and adjuster in (tk.LEFT, tk.RIGHT):
             adjuster_frame = tk.Frame(widget, width=self.adjusterWidth, cursor='sb_h_double_arrow')
             adjuster_frame.pack(side=adjuster, fill=tk.Y)
             adjuster_frame.bind("<B1-Motion>", self.onAdjusterMouseMove)

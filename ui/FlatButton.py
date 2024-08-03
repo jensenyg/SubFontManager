@@ -3,11 +3,12 @@ from tkinter import font as tkfont
 
 
 class FlatButton(tk.Frame):
-    Click_Offsets = (1, 1)
+    # 扁平按钮，没有边框没有底色，只有点击时会偏移一点
+    Click_Offsets = (1, 1)    # 点击时x,y方向偏移的量
 
-    def __init__(self, master, text: str, size: int = 26, command=None):
+    def __init__(self, master, text: str, size: int = 26, command=None, **kwargs):
         super().__init__(master, width=22, height=22)
-        self.label = tk.Label(self, text=text, fg='#645D56', font=tkfont.Font(family='Arial', size=size))
+        self.label = tk.Label(self, text=text, font=tkfont.Font(family='Arial', size=size), **kwargs)
         self.label.place(x=0, y=-8)
         self.update_idletasks()
         self.label.bind("<ButtonPress-1>", self.onMouseDown)

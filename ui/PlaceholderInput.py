@@ -3,6 +3,7 @@ from tkinter import ttk, font as tkfont
 
 
 class PlaceholderEntry(ttk.Entry):
+    """带有占位符的输入框，当内容为空时会显示灰色的占位符文字"""
     def __init__(self, master=None, placeholder: str = '', *args, **kwargs):
         super().__init__(master, *args, **kwargs)
         self.isblank = True
@@ -49,15 +50,14 @@ class PlaceholderEntry(ttk.Entry):
 
 
 class PlaceholderCombobox(ttk.Combobox, PlaceholderEntry):
+    """带有占位符的组合框，当内容为空时会显示灰色的占位符文字"""
     def __init__(self, master=None, placeholder='', *args, **kwargs):
-        self.variable = kwargs.get('textvariable', tk.StringVar())
-        kwargs['textvariable'] = self.variable
+        variable = kwargs.get('textvariable')
         super().__init__(master, *args, **kwargs)
 
         self.isblank = True
-        self._currentValue = ''
-        self.lastValue = ''
-        self.variable.trace_add('write', self.onValueChange)
+        # 保存初始值和通过set设置的当前值，以便在被下拉菜单自动改写后可以回填
+        self.currentValue = variable.get() if variable else ''
         self._init(placeholder)
         # 禁用鼠标滚轮响应
         self.bind('<MouseWheel>', self.onMouseWheel)
@@ -68,14 +68,10 @@ class PlaceholderCombobox(ttk.Combobox, PlaceholderEntry):
         self.isblank = string == ''
         self.setStyle(not self.isblank)
         super().set(self.placeholder if self.isblank else string)
+        self.currentValue = self.get()
 
     def onMouseWheel(self, e):
         # 让事件跳过本控件，直接传给父控件，即不滚动下拉菜单，直接滚动整个列表
         self.master.event_generate('<MouseWheel>', delta=e.delta)
         # 返回break可以阻止事件进一步传播
         return 'break'
-
-    def onValueChange(self, *args):
-        # 总是保存一个旧值，为文件源中回填值使用
-        self.lastValue = self._currentValue
-        self._currentValue = self.get()
