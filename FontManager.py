@@ -1,32 +1,26 @@
 import os
-import sys
 import io
 import json
-from pathlib import Path
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
+from Global import AppInfo
 from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
 from ui import StatusBar
 
 
-def get_cache_dir(mkdir: bool = False) -> Path:
+def get_cache_dir(mkdir: bool = False) -> str:
     """
     获取一个可用于保存字体缓存的路径.
-    在Windows和Linux下可以保存在程序目录中，在macOS不能，所以保存到~/Library/Caches中
+    在Windows和Linux中可以保存在程序目录中，在macOS中不能，所以保存到~/Library/Caches中
     """
-    dir_name, app_name = os.path.split(sys.argv[0])    # 整个程序的路径和名称
-    home = Path.home()
-    if sys.platform == 'darwin' and not app_name.endswith('.py'):  # macOS且非调试阶段
-        cache_dir = home / "Library" / "Caches" / app_name
+    if AppInfo.platform == AppInfo.MACOS and not AppInfo.isInDev:  # macOS且非调试阶段
+        cache_dir = AppInfo.getSystemCacheDirectory()
         if mkdir:
-            cache_dir.mkdir(exist_ok=True)
-    # elif sys.platform == 'win32':     # Windows
-    #     cache_dir = Path(os.getenv('LOCALAPPDATA', '')) / app_name
-    else:   # Linux
-        # cache_dir = home / ".cache" / app_name
-        cache_dir = Path(dir_name)
+            os.makedirs(cache_dir, exist_ok=True)
+    else:   # Linux and Windows
+        cache_dir = AppInfo.dirName
     return cache_dir
 
 
@@ -35,7 +29,7 @@ class FontManager:
 
     LOCAL = 'local'
     SYSTEM = 'system'
-    cacheFilePath = get_cache_dir(mkdir=True) / 'fontcache.json'    # 字体缓存文件路径
+    cacheFilePath = os.path.join(get_cache_dir(mkdir=True), 'fontcache.json')    # 字体缓存文件路径
 
     # 对于多字体的文件（如TTC），每个字体对象的名称分别保存在'fontnames'列表内
     # {fontpath: {'fontnames': [{'familynames': str, 'fullnames': str, 'style': str}], 'filesize': int}}
@@ -61,7 +55,7 @@ class FontManager:
                 cls.systemFontsInfo = eval(cache_str)
                 # cls.systemFontsCache.sort(key=lambda e: e['fontpath'])
             except Exception as e:
-                if file:
+                if 'file' in locals() and file:
                     file.close()
                 print('Warning: 缓存文件错误，已删除重建.')
 
@@ -120,7 +114,7 @@ class FontManager:
                     with open(cls.cacheFilePath, 'w') as file:
                         file.write(cache_str)
                 except Exception as e:
-                    if file:
+                    if 'file' in locals() and file:
                         file.close()
                     save_failed = True
             else:

@@ -6,3 +6,4 @@ venv
 *.spec
 temp*.py
 fontcache.json
+config.ini

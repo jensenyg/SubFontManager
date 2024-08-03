@@ -10,7 +10,7 @@ import ui
 class ConfigWindow(ui.PopupWindow):
     def __init__(self, master):
         super().__init__(master, '设置')
-        ui.placeWindow(self, 400, 255, yRatio=0.4)
+        ui.placeWindow(self, width=400, height=255, yRatio=0.4)
 
         # 添加弹窗内容 -----------------
         tk.Label(self, text=__version__.name, font=tkfont.Font(family='Arial', size=20, weight=tkfont.BOLD)) \

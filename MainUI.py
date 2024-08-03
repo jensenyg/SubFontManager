@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, font as tkfont
+from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
 import ui
 from FontList import FontList
@@ -146,4 +146,6 @@ class MainUI:
         ConfigWindow(self.root)
 
     def onDestroy(self, event):
+        if self.stopEvent.is_set():    # 窗口关闭时Destroy事件会被触发很多次，只响应一次即可
+            return
         self.stopEvent.set()    # 设置停止事件，让可能正在检索字体的线程尽快停止
