@@ -7,7 +7,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[(os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2')],
+    datas=[(os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2'), ('lang', 'lang')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

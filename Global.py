@@ -17,6 +17,15 @@ class AppInfo:
     isInDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
 
     @classmethod
+    def getResourcesDirectory(cls) -> str:
+        """获取操作系统中合适的程序数据路径，并加上本程序的名称作为目录名"""
+        if cls.platform == cls.MACOS and not cls.isInDev:    # macOS and not in dev
+            path = os.path.join(os.path.dirname(cls.dirName), 'Resources')
+        else:
+            path = '.'
+        return path
+
+    @classmethod
     def getSystemCacheDirectory(cls) -> str:
         """获取操作系统中合适的缓存路径，并加上本程序的名称作为目录名"""
         if cls.platform == cls.MACOS:    # macOS

@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, font as tkfont
+from tkinter import ttk
 from . import placeWindow
 
 
@@ -24,8 +24,7 @@ class MessageBox(PopupWindow):
         self.returnValue = None
         # 添加弹窗内容
         gap = 10
-        text_label = ttk.Label(self, text=message, wraplength=self.Width - 2 * gap,
-                               font=tkfont.Font(size=14))
+        text_label = ttk.Label(self, text=message, wraplength=self.Width - 2 * gap, font=(None, 14))
         text_label.pack(side=tk.TOP, padx=gap, pady=(gap, 0), fill=tk.X)
         btn_frame = tk.Frame(self)
         btn_frame.pack(side=tk.TOP, padx=gap, pady=gap)

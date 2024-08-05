@@ -2,6 +2,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
+from Lang import Lang
 import ui
 from FontList import FontList
 from FontManager import FontManager
@@ -22,7 +23,7 @@ class MainUI:
         file_frame = ttk.Frame(root)
         file_frame.grid(row=0, padx=10, pady=10, sticky="we")
 
-        ttk.Label(file_frame, text="输入文件:").grid(row=0, column=0, pady=gapy, sticky="w")
+        ttk.Label(file_frame, text=Lang['Input file'] + ':').grid(row=0, column=0, pady=gapy, sticky="w")
         # 这里如果不放在self下，函数执行完后file_entry_text就会被回收，导致事件监听失效
         self.fileEntryText = tk.StringVar()
         self.fileEntry = ttk.Entry(file_frame, textvariable=self.fileEntryText)
@@ -31,18 +32,18 @@ class MainUI:
         self.fileEntryText.trace_add('write', self.onFileEntryInsert)
         tk.Button(file_frame, text="...", command=self.openFile).grid(row=0, column=3, pady=(0, 2))
 
-        ttk.Label(file_frame, text="输出文件:").grid(row=1, column=0, pady=gapy, sticky="w")
+        ttk.Label(file_frame, text=Lang['Output file'] + ':').grid(row=1, column=0, pady=gapy, sticky="w")
         self.saveMode = tk.IntVar()
         self.saveMode.set(0)
-        ttk.Radiobutton(file_frame, text="修改源文件", variable=self.saveMode, value=0, command=self.onSwitchSaveMode)\
-            .grid(row=1, column=1, padx=5, sticky="w")
+        ttk.Radiobutton(file_frame, text=Lang['Modify source file'], variable=self.saveMode, value=0,
+                        command=self.onSwitchSaveMode).grid(row=1, column=1, padx=5, sticky="w")
 
         # "另存为"Frame，包括一个Radio和一个Entry ----------
         saveas_frame = ttk.Frame(file_frame)
         saveas_frame.grid(row=2, column=1, columnspan=3, sticky="ew")
-        ttk.Radiobutton(saveas_frame, text="另存为:", variable=self.saveMode, value=1, command=self.onSwitchSaveMode)\
-            .pack(side=tk.LEFT, padx=5, pady=gapy)
-        self.dirEntry = ui.PlaceholderEntry(saveas_frame, placeholder="留空则保存到源路径.")
+        ttk.Radiobutton(saveas_frame, text=Lang['Save as'] + ':', variable=self.saveMode, value=1,
+                        command=self.onSwitchSaveMode).pack(side=tk.LEFT, padx=5, pady=gapy)
+        self.dirEntry = ui.PlaceholderEntry(saveas_frame, placeholder=Lang['Leave blank to save to source directory.'])
         self.dirEntry.configure(state=tk.DISABLED)
         self.dirEntry.pack(side=tk.LEFT, padx=(5, 2), pady=(1, 0), fill=tk.X, expand=True)
         self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openSaveAs)
@@ -54,8 +55,8 @@ class MainUI:
         # 字体列表和"载入"按钮 ---------------
         fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
         fontlist_frame.grid(row=1, padx=5, sticky="we")
-        ttk.Label(fontlist_frame, text="字幕中包含的字体:").pack(side=tk.LEFT, padx=5)
-        self.loadBtn = tk.Button(fontlist_frame, text="载入", width=6, command=self.onLoadBtn, state=tk.DISABLED)
+        ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=5)
+        self.loadBtn = tk.Button(fontlist_frame, text=Lang['Load'], width=6, command=self.onLoadBtn, state=tk.DISABLED)
         self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
         self.fontList = FontList(root)    # 字体列表
@@ -65,13 +66,12 @@ class MainUI:
         bottom_frame = ttk.Frame(root)
         bottom_frame.grid(row=3, padx=10, pady=(0, 10), sticky="ew")
         status_label = ttk.Label(bottom_frame)
-        status_label.grid(row=0, column=0, padx=(0, 5), sticky='ew')
+        status_label.pack(side=tk.LEFT, padx=(0, 5), fill=tk.X, expand=True)
         ui.StatusBar.setLabel(status_label)
 
-        ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig).grid(row=0, column=1, padx=10)
-        ttk.Button(bottom_frame, text="应用", width=5, command=self.onApplyBtn).grid(row=0, column=2, padx=5)
-        ttk.Button(bottom_frame, text="关闭", width=5, command=root.destroy).grid(row=0, column=3, padx=5)
-        bottom_frame.columnconfigure(0, weight=1)
+        ttk.Button(bottom_frame, text=Lang['Close'], width=5, command=root.destroy).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(bottom_frame, text=Lang['Apply'], width=5, command=self.onApplyBtn).pack(side=tk.RIGHT, padx=5)
+        ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig).pack(side=tk.RIGHT, padx=10)
 
         # 配置列权重，使列表框能够随窗口大小变化而变化
         root.rowconfigure(2, weight=1)
@@ -110,7 +110,7 @@ class MainUI:
     def onDrop(self, event):
         file_path = event.data.strip('{}')
         if not file_path.endswith(('.ass', '.ssa')):
-            messagebox.showerror("错误", "仅支持 .ass 和 .ssa 文件")
+            messagebox.showerror(Lang['Error'], Lang['Only .ass and .ssa file are supported.'])
             return
         self.fileEntry.delete(0, tk.END)
         self.fileEntry.insert(0, event.data)
@@ -133,7 +133,7 @@ class MainUI:
         if subtitleObj:
             # StatusBar.set('正在查找字体文件...')
             self.fontList.loadSubtitle(subtitleObj)
-            self.loadBtn.configure(text="载入" if subtitleObj is None else "重新载入", state=tk.NORMAL)
+            self.loadBtn.configure(text=Lang['Load'] if subtitleObj is None else Lang['Reload'], state=tk.NORMAL)
         # StatusBar.set('文件载入完成.', 3)
 
     def onApplyBtn(self, *args):

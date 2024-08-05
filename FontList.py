@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, font as tkfont
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
+from Lang import Lang
 import ui
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
@@ -11,15 +12,16 @@ from SubStationAlpha import SubStationAlpha
 
 class FontList(ui.WidgetTable):
     SrcCmbOptions = {  # Source Combobox Options
-        'EMBED': '<使用内嵌字体>',
-        'SYSTEMFONT': '<使用系统字体>',
-        'SRCDIR': '<使用同目录下的字体>',
-        'BROWSE': '<手动选择路径...>',
-        'EXTRACT': '<提取内嵌字体...>'
+        'EMBED': '<%s>' % Lang['Use embedded font'],
+        'SYSTEMFONT': '<%s>' % Lang['Use system font'],
+        'SRCDIR': '<%s>' % Lang['Use font from same diretory'],
+        'BROWSE': '<%s...>' % Lang['Select font path manually'],
+        'EXTRACT': '<%s...>' % Lang['Extract embedded font']
     }
-    Placeholder_NOSRC = '<无来源>'
+    Placeholder_NOSRC = '<%s>' % Lang['No source']
     EMBED_NAME_PREFIX = 'embed:/'  # 嵌入字体名的前缀
-    STYLE_TEXTS = {'regular': '常规', 'bold': '粗体', 'italic': '斜体', 'bold italic': '粗斜体'}   # 样式名称表
+    STYLE_TEXTS = {'regular': Lang['Regular'], 'bold': Lang['Bold'],
+                   'italic': Lang['Italic'], 'bold italic': Lang['Bold italic']}   # 样式名称表
 
     def __init__(self, master):
         super().__init__(master=master)
@@ -29,12 +31,12 @@ class FontList(ui.WidgetTable):
         self.subtitleObj = None
 
         # 列设置 -----------------
-        self.addColumn('内嵌', width=30)
-        self.addColumn('字体', weight=1, minWidth=100, adjuster='right')
-        self.addColumn('样式', width=60)
-        self.addColumn('字数', width=60, minWidth=40, adjuster='right')
-        self.addColumn('子集', width=30)
-        self.addColumn('文件源', weight=2, minWidth=80, adjuster='left')
+        self.addColumn(Lang['Eb'], width=30)
+        self.addColumn(Lang['Font'], weight=1, minWidth=100, adjuster='right')
+        self.addColumn(Lang['Style'], width=60)
+        self.addColumn(Lang['Count'], width=60, minWidth=40, adjuster='right')
+        self.addColumn(Lang['Ss'], width=30)
+        self.addColumn(Lang['File source'], weight=2, minWidth=80, adjuster='left')
 
     def loadSubtitle(self, subObj: SubStationAlpha = None):
         """载入字体文件并将其中的字体和信息添加到列表"""
@@ -59,7 +61,7 @@ class FontList(ui.WidgetTable):
             # 开始添加内嵌字体条目时，插入一个分隔行
             if not adding_embed_items and item['embedName'] != '':
                 adding_embed_items = True
-                self.addSeparateRow('内嵌字体')
+                self.addSeparateRow(Lang['Embedded fonts'])
 
             # 保存行所有信息和变量的dict
             row_item = {
@@ -150,36 +152,39 @@ class FontList(ui.WidgetTable):
                     index = self.subtitleObj.embedFontMgr.indexOfFontInPath(
                         filename, row_item['fontName'], row_item['style'])
                 else:
-                    warnings.append(f"内嵌文件 {src} 不存在。")
+                    warnings.append(Lang["Embedded file {p} doesn't exist."].format(f=src))
             elif not os.path.isfile(src):
-                warnings.append("'%s %s'的文件源'%s'不存在。" %
-                                (row_item['fontName'], self.STYLE_TEXTS.get(row_item['style'], ''), src))
+                warnings.append(Lang["{p} (source of '{f} {s}') doesn't exist."]
+                                .format(p=src, f=row_item['fontName'], s=self.STYLE_TEXTS.get(row_item['style'], '')))
             elif not os.access(src, os.R_OK):
-                warnings.append("'%s %s'的文件源'%s'无法读取。" %
-                                (row_item['fontName'], self.STYLE_TEXTS.get(row_item['style'], ''), src))
+                warnings.append(Lang["Unabled to read {p} (source of '{f} {s}')."]
+                                .format(p=src, f=row_item['fontName'], s=self.STYLE_TEXTS.get(row_item['style'], '')))
             else:
                 index = self.fontMgr.indexOfFontInPath(src, row_item['fontName'], row_item['style'])
 
             if index == -1:
-                warnings.append("文件 %s 中不包含字体 %s %s。" % (src, row_item['fontName'], row_item['style']))
+                warnings.append(Lang["File {p} doesn't contain font '{f} {s}'."]
+                                .format(p=src, f=row_item['fontName'], s=row_item['style']))
             elif index is not None:
                 row_item['index'] = index
 
         if not have_task:
-            messagebox.showerror("错误", '没有可执行的任务。')
+            messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
             return 1
         elif warnings:
-            messagebox.showerror("错误", '\n'.join(warnings))
+            messagebox.showerror(Lang['Error'], '\n'.join(warnings))
             return 1
 
         # 检查大字体的子集化是否勾选 -------------
         for row_item in self.itemList:
             if not row_item['embedName'] and not row_item['subset'].get()\
                     and os.path.getsize(row_item['sourceWidget'].get()) > 1024000:    # 不子集化且文件>100K
-                warnings.append(f"{row_item['fontName']} {row_item['style']} 的文件源较大且未选择子集化，")
+                warnings.append(Lang["File source of {f} {s} is big and subset is not selected,"]
+                                .format(f=row_item['fontName'], s=row_item['style']))
         if warnings:
-            if not messagebox.askyesno("提示", "%s\n将它%s直接内嵌可能会导致字幕文件体积显著增大，你确定要这样做？" %
-                                             ('\n'.join(warnings), '们' if len(warnings) > 1 else '')):
+            if not messagebox.askyesno(Lang['Reminding'], '\n'.join(warnings) + '\n' +
+                                       Lang["embedding them directly may significantly increase "
+                                            "the size of the subtitle file, are you sure about this?"]):
                 return 1
 
         # 执行内嵌 -------------
@@ -284,11 +289,14 @@ class FontList(ui.WidgetTable):
         char_count = len(rowItem['text'])
         if not rowItem['embed'].get() and (char_count > 99 or char_count == 0):
             self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
-            checked = ((char_count > 99 and messagebox.askokcancel(
-                '提示', f"{rowItem['fontName']} 字体覆盖了{char_count}个字符，"
-                        f"将它内嵌可能会导致字幕文件显著增大，你确定要这样做？"))
-                       or (char_count == 0 and messagebox.askokcancel(
-                        '提示', f"{rowItem['fontName']} 字体不覆盖任何字符，你确定要将它内嵌？")))
+            checked = ((char_count > 99 and
+                        messagebox.askokcancel(Lang['Reminding'], Lang["Font '{f} {s}' covers {c} charactors，embedding "
+                            "it may significantly increase the size of the subtitle file, are you sure about this?"]
+                            .format(f=rowItem['fontName'], s=self.STYLE_TEXTS.get(rowItem['style']), c=char_count)))
+                       or (char_count == 0 and
+                           messagebox.askokcancel(Lang['Reminding'], Lang["Font '{f} {s}' doesn't cover any charactor, "
+                               "are you sure you want to embed it?"]
+                               .format(f=rowItem['fontName'], s=self.STYLE_TEXTS.get(rowItem['style'])))))
             rowItem['embedWidget'].focus_set()   # 弹窗之后需手动取回焦点
 
         # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
@@ -341,7 +349,7 @@ class FontList(ui.WidgetTable):
                 res = self.subtitleObj.extractFont(
                     rowItem['embedName'], file_path, rowItem['fontName'], rowItem['style'])
                 if res != 0:
-                    raise Exception(f'保存到{file_path}文件失败!')
+                    raise Exception(Lang['Save to {p} failed!'].format(p=file_path))
             filename = cmb_src.currentValue
 
         cmb_src.set(filename)

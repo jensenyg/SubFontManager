@@ -5,6 +5,7 @@ from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
 from Global import AppInfo
+from Lang import Lang
 from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
 from ui import StatusBar
@@ -80,7 +81,7 @@ class FontManager:
                 j += 1
             elif not cache_path or cache_path > system_path:   # 系统中的字体是新增的，加入到缓存中
                 if not statusbar_indexing_flag:
-                    StatusBar.set('正在索引系统字体... ')
+                    StatusBar.set(Lang['Indexing system fonts'] + '... ')
                     statusbar_indexing_flag = True
                 font_names = fontMgr.getFontNames(system_path, ignoreCache=True)
                 if font_names:
@@ -121,9 +122,9 @@ class FontManager:
                 save_failed = True
 
         if save_failed:
-            StatusBar.append('缓存保存失败.', 3)
+            StatusBar.append(Lang['saving cache file failed.'], 3)
         elif statusbar_indexing_flag:
-            StatusBar.append('完成.', 3)
+            StatusBar.append(Lang['done.'], 3)
 
     @staticmethod
     def _buildFontIndex(fontsInfo: dict) -> tuple:

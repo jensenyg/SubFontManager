@@ -3,6 +3,7 @@ import io
 import re
 from enum import Enum
 from tkinter import messagebox
+from Lang import Lang
 from FontManager import FontManager
 from UUEncoding import UUEncode, UUDecode
 
@@ -85,7 +86,7 @@ class DialogueList:
         self.format = [s.strip() for s in fmtStr[7:].split(',')]    # 跨过开头的"Format:"
         self.format_lower = [s.lower() for s in self.format]    # 全小写格式名，用于查找和比较
         if 'name' not in self.format_lower or 'text' not in self.format_lower:
-            raise ValueError("Subtitle format error!")
+            raise ValueError(Lang['Subtitle format error!'])
 
     def append(self, dialogueStr: str):
         fields = []
@@ -133,10 +134,10 @@ class SubStationAlpha:
     @classmethod
     def load(cls, path: str):
         if not os.path.isfile(path):
-            messagebox.showerror("错误", f"文件 {path} 不存在。")
+            messagebox.showerror(Lang['Error'], Lang["File {p} doesn't exist."].format(p=path))
             return
         elif not os.access(path, os.R_OK):
-            messagebox.showerror("错误", f"文件 {path} 无法读取。")
+            messagebox.showerror(Lang['Error'], Lang['Unable to read file {p}.'].format(p=path))
             return
         return cls(path)
 
@@ -206,7 +207,7 @@ class SubStationAlpha:
         if not path:
             path = self.filePath
         if not os.access(os.path.dirname(path), os.W_OK):
-            messagebox.showerror("错误", f"文件 {path} 无法写入。")
+            messagebox.showerror(Lang['Error'], Lang['Unable to write file {p}.'].format(p=path))
             return
 
         with open(path, 'w') as file:
@@ -395,7 +396,7 @@ class SubStationAlpha:
         if index == -1:
             return 1
         if not os.access(os.path.dirname(savePath), os.W_OK):
-            messagebox.showerror("错误", f"文件 {savePath} 无法写入。")
+            messagebox.showerror(Lang['Error'], "Unable to write file {p}.".format(p=savePath))
         try:
             with open(savePath, 'wb') as file:
                 file.write(UUDecode(self.fontList[embedName][index]))
