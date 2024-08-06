@@ -43,7 +43,9 @@ class ConfigWindow(ui.PopupWindow):
         lang_cmb = ttk.Combobox(lang_frame, textvariable=self.lang_var, values=lang_list, state='readonly')
         lang_cmb.pack(side=tk.LEFT, padx=5, fill=tk.X)
 
-        ttk.Button(self, text=Lang['OK'], command=self.close).pack()
+        ok_btn = ttk.Button(self, text=Lang['OK'], command=self.close)
+        ok_btn.pack()
+        ok_btn.focus_set()
 
         master.wait_window(self)
 

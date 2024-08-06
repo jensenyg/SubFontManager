@@ -2,6 +2,7 @@ from .FlatButton import FlatButton
 from .WidgetTable import WidgetTable
 from .StatusBar import StatusBar
 from .PlaceholderInput import PlaceholderEntry, PlaceholderCombobox
+from .ToolTip import ToolTip
 
 
 def placeWindow(window, x: int = None, y: int = None, width: int = 500, height: int = 400,
@@ -34,4 +35,4 @@ from .Popup import PopupWindow, MessageBox
 
 
 __all__ = ['FlatButton', 'WidgetTable', 'StatusBar', 'PlaceholderEntry', 'PlaceholderCombobox',
-           'PopupWindow', 'MessageBox', 'placeWindow']
+           'ToolTip', 'PopupWindow', 'MessageBox', 'placeWindow']

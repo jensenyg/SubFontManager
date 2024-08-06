@@ -71,7 +71,9 @@ class MainUI:
 
         ttk.Button(bottom_frame, text=Lang['Close'], width=5, command=root.destroy).pack(side=tk.RIGHT, padx=5)
         ttk.Button(bottom_frame, text=Lang['Apply'], width=5, command=self.onApplyBtn).pack(side=tk.RIGHT, padx=5)
-        ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig).pack(side=tk.RIGHT, padx=10)
+        config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig)
+        config_btn.pack(side=tk.RIGHT, padx=5)
+        ui.ToolTip(config_btn, Lang['Settings'])
 
         # 配置列权重，使列表框能够随窗口大小变化而变化
         root.rowconfigure(2, weight=1)

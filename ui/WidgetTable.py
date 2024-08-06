@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, font as tkfont
+from .ToolTip import ToolTip
 
 
 class WidgetRow(tk.Frame):
@@ -52,7 +53,8 @@ class WidgetTable(tk.Frame):
         self.rowconfigure(1, weight=1)
         self.after(0, self.onResize)
 
-    def addColumn(self, heading: str = None, width: int = 0, minWidth: int = 0, weight: int = 0, adjuster: str = None):
+    def addColumn(self, heading: str = None, width: int = 0, minWidth: int = 0, weight: int = 0,
+                  adjuster: str = None, toolTip: str = None):
         """
         添加列，并设置列的基本属性
         :param heading: 列标题
@@ -61,6 +63,7 @@ class WidgetTable(tk.Frame):
         :param weight: 列宽度权重，控制其在宽度调整时被分配到宽度的比例，为0则宽度固定
         :param adjuster: 宽度调节器，用于调节该列的宽度，放置在列标题的左侧或右侧，
                          可以设置为'left', 'right'来指定，None则不设置，列宽无法调整
+        :param toolTip: 气泡提示，鼠标悬浮后显示，None则没有
         """
         # 不管是否需adjuster，所有的都放在Frame里，通过结构一致保证pack后的高度一致
         widget = tk.Frame(self.headerBar, bd=1, relief='groove')
@@ -68,7 +71,11 @@ class WidgetTable(tk.Frame):
             adjuster_frame = tk.Frame(widget, width=self.adjusterWidth, cursor='sb_h_double_arrow')
             adjuster_frame.pack(side=adjuster, fill=tk.Y)
             adjuster_frame.bind("<B1-Motion>", self.onAdjusterMouseMove)
-        tk.Label(widget, text=heading).pack()
+        label = tk.Label(widget, text=heading)
+        label.pack()
+        if toolTip:
+            ToolTip(label, toolTip)
+
         # 通过pack方法，让headerBar Frame自适应控件的尺寸，因为place方法无法自适应，
         # 当place覆盖pack的布局时，仍会保留其控件尺寸
         widget.pack(side=tk.LEFT)
