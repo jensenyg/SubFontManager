@@ -7,7 +7,7 @@ import ui
 from FontList import FontList
 from FontManager import FontManager
 from SubStationAlpha import SubStationAlpha
-from ConfigWindow import ConfigWindow
+from SettingsWindow import SettingsWindow
 
 
 class MainUI:
@@ -71,7 +71,7 @@ class MainUI:
 
         ttk.Button(bottom_frame, text=Lang['Close'], width=5, command=root.destroy).pack(side=tk.RIGHT, padx=5)
         ttk.Button(bottom_frame, text=Lang['Apply'], width=5, command=self.onApplyBtn).pack(side=tk.RIGHT, padx=5)
-        config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showConfig)
+        config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showSettings)
         config_btn.pack(side=tk.RIGHT, padx=5)
         ui.ToolTip(config_btn, Lang['Settings'])
 
@@ -144,8 +144,8 @@ class MainUI:
         if res != 1 and self.dirEntry.isblank:    # 如果嵌入成功且是覆盖原文件，则重新载入
             self.onLoadBtn()
 
-    def showConfig(self, event):
-        ConfigWindow(self.root)
+    def showSettings(self, event):
+        SettingsWindow(self.root)
 
     def onDestroy(self, event):
         if self.stopEvent.is_set():    # 窗口关闭时Destroy事件会被触发很多次，只响应一次即可

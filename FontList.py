@@ -34,7 +34,7 @@ class FontList(ui.WidgetTable):
         self.addColumn(Lang['Eb'], width=30, toolTip=Lang['Embed'])
         self.addColumn(Lang['Font'], weight=1, minWidth=100, adjuster='right')
         self.addColumn(Lang['Style'], width=60)
-        self.addColumn(Lang['Count'], width=60, minWidth=40, adjuster='right', toolTip=Lang['Character count'])
+        self.addColumn(Lang['Count'], width=55, minWidth=40, adjuster='right', toolTip=Lang['Character count'])
         self.addColumn(Lang['Ss'], width=30, toolTip=Lang['Subset'])
         self.addColumn(Lang['File source'], weight=2, minWidth=80, adjuster='left')
 

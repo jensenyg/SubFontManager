@@ -7,3 +7,4 @@ venv
 temp*.py
 fontcache.json
 config.ini
+*.psd

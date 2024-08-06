@@ -3,11 +3,17 @@ import os
 import sys
 import site
 
+icon_names = {'darwin': 'icon.icns', 'win32': 'icon.ico', 'linux': 'icon.png', 'linux2': 'icon.png'}
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[(os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2'), ('lang', 'lang')],
+    datas=[
+        (os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2'),
+        ('icon/icon@128.png', 'icon'),
+        ('lang', 'lang')
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -16,6 +22,7 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+
 pyz = PYZ(a.pure)
 
 exe = EXE(
@@ -26,7 +33,7 @@ exe = EXE(
     name='AssFontManager',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=sys.platform!='win32',    # 官方不建议Windows下中使用strip
+    strip=sys.platform!='win32',    # 官方不建议Windows下使用strip
     upx=False,
     console=False,
     disable_windowed_traceback=False,
@@ -34,7 +41,9 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=os.path.join('icon', icon_names[sys.platform])
 )
+
 coll = COLLECT(
     exe,
     a.binaries,
@@ -44,9 +53,10 @@ coll = COLLECT(
     upx_exclude=[],
     name='AssFontManager',
 )
+
 app = BUNDLE(
     coll,
     name='AssFontManager.app',
-    icon=None,
+    icon=os.path.join('icon', icon_names[sys.platform]),
     bundle_identifier=None,
 )
