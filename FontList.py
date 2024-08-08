@@ -1,9 +1,10 @@
 import os
 import io
 import tkinter as tk
-from tkinter import filedialog, messagebox, font as tkfont
+from tkinter import filedialog, messagebox
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
+from App import App
 from Lang import Lang
 import ui
 from FontManager import FontManager
@@ -61,7 +62,8 @@ class FontList(ui.WidgetTable):
             # 开始添加内嵌字体条目时，插入一个分隔行
             if not adding_embed_items and item['embedName'] != '':
                 adding_embed_items = True
-                self.addSeparateRow(Lang['Embedded fonts'])
+                self.addSeparateRow(Lang['Embedded fonts'], indent=28 if App.platform == App.MACOS else 26,
+                                    padx=5, pady=4)
 
             # 保存行所有信息和变量的dict
             row_item = {
@@ -88,7 +90,7 @@ class FontList(ui.WidgetTable):
             else:
                 row_item['embed'].set(False)
                 row_item['subset'].set(True)
-                row_item['source'].set(self.fontMgr.findFont(row_item['fontName'])[0])
+                row_item['source'].set(self.fontMgr.findFont(row_item['fontName'])[0])   # 寻找匹配字体文件
                 # 无内嵌字体的条目也不应该有提取内嵌字体的选项
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EMBED'])
                 row_item['sourceOptions'].remove(self.SrcCmbOptions['EXTRACT'])
@@ -98,22 +100,27 @@ class FontList(ui.WidgetTable):
             # 添加行和行内控件 --------------
             row_frame = self.newRow()
             # 复选框：是否内嵌
-            row_item['embedWidget'] = tk.Checkbutton(row_frame, variable=row_item['embed'], bg=self.bg)
+            row_item['embedWidget'] = ui.Checkbox(row_frame, variable=row_item['embed'], text='')
             row_item['embedWidget'].bind("<Button-1>", lambda e, r=row_item: self.onEmbedClicked(r))
+            row_frame.addCell(row_item['embedWidget'], padx=(6, 0))
             # 文本：字体名
-            row_item['fontNameWidget'] = tk.Label(row_frame, text=row_item['fontName'], anchor='w', bg=self.bg)
+            row_item['fontNameWidget'] = ui.Label(row_frame, text=row_item['fontName'], anchor=tk.W)
+            row_frame.addCell(row_item['fontNameWidget'], pady=(0, 1))
             # 文本：样式名
-            tk.Label(row_frame, text=self.STYLE_TEXTS.get(row_item['style'], ''), anchor='center', bg=self.bg)
+            row_frame.addCell(ui.Label(row_frame, text=self.STYLE_TEXTS.get(row_item['style'], ''),
+                                       anchor=tk.CENTER), pady=(0, 1))
             # 文本：字数统计
-            tk.Label(row_frame, text=str(len(row_item['text'])) + ' ', anchor='e', bg=self.bg)
+            row_frame.addCell(ui.Label(row_frame, text=str(len(row_item['text'])),
+                                       anchor=tk.E), padx=(0, 2), pady=(0, 1))
             # 复选框：子集化
-            row_item['subsetWidget'] = tk.Checkbutton(row_frame, variable=row_item['subset'], bg=self.bg)
+            row_item['subsetWidget'] = ui.Checkbox(row_frame, variable=row_item['subset'])
             row_item['subsetWidget'].bind("<Button-1>", lambda e, r=row_item: self.onSubsetClicked(r))
+            row_frame.addCell(row_item['subsetWidget'], padx=(5, 0))
             # 组合框：文件源
-            row_item['sourceWidget'] = ui.PlaceholderCombobox(
-                row_frame, placeholder=self.Placeholder_NOSRC, textvariable=row_item['source'],
-                values=row_item['sourceOptions'], background=self.bg)
+            row_item['sourceWidget'] = ui.Combobox(row_frame, placeholder=self.Placeholder_NOSRC, background=self.bg,
+                                                   textvariable=row_item['source'], values=row_item['sourceOptions'])
             row_item['sourceWidget'].bind("<<ComboboxSelected>>", lambda e, r=row_item: self.onSourceComboSelect(r))
+            row_frame.addCell(row_item['sourceWidget'])
 
             self.addRow(row_frame)
             self.setRowStatus(row_item)
@@ -279,11 +286,11 @@ class FontList(ui.WidgetTable):
         else:
             rowItem['modified'] = rowItem['embed'].get()
         # 根据修改状态设置粗体
-        rowItem['fontNameWidget'].configure(font=tkfont.Font(
-            weight=tkfont.BOLD if rowItem['modified'] else tkfont.NORMAL))
+        rowItem['fontNameWidget'].setBold(rowItem['modified'])
 
     def onEmbedClicked(self, rowItem: dict):
-        if rowItem['embedWidget'].cget('state') == 'disabled':  # 禁用的控件不用响应
+        # 禁用的控件不用响应
+        if str(rowItem['embedWidget'].cget('state')) == 'disabled':    # cget返回的不是str类型，直接判断不一定准确，所以先转str
             return
         checked = not rowItem['embed'].get()
         char_count = len(rowItem['text'])

@@ -8,7 +8,9 @@ class ConfigParserWraper:
         self.path = path
         self.parser = configparser.ConfigParser()
         if os.path.isfile(path) and os.access(path, os.R_OK):
-            self.parser.read(self.path)
+            with open(self.path, 'r', encoding='utf-8') as f:
+                self.parser.read_file(f)
+            # self.parser.read(self.path)
 
     def get(self, section: str, key: str = None, default: str = None, saveDefault: bool = True) -> (str, iter):
         """
@@ -46,7 +48,7 @@ class ConfigParserWraper:
         try:
             if not os.path.exists(dir):
                 os.makedirs(dir, exist_ok=True)
-            with open(path, 'w') as file:
+            with open(path, 'w', encoding='utf-8') as file:
                 self.parser.write(file)
             return True
         except Exception as e:

@@ -1,4 +1,5 @@
 import tkinter as tk
+from App import App
 
 
 class ToolTip:
@@ -25,13 +26,13 @@ class ToolTip:
     def showTip(self):
         if self.tip_window:
             return
-        x = self.master.winfo_pointerx() + 10
-        y = self.master.winfo_pointery() + 10
+        x = self.master.winfo_pointerx() + int(12 * App.dpiScale)
+        y = self.master.winfo_pointery() + int(18 * App.dpiScale)
         self.tip_window = tk.Toplevel(self.master)
         self.tip_window.wm_overrideredirect(True)
         self.tip_window.wm_geometry(f"+{x}+{y}")
-        tk.Label(self.tip_window, text=self.text, justify='left', background="#ffffe0",
-                 borderwidth=1, relief='solid', font=(None, 12)).pack(ipadx=2)
+        tk.Label(self.tip_window, text=self.text, justify='left', background="#ffffe0", borderwidth=1, relief='solid') \
+            .pack(ipadx=2)
 
     def hideTip(self, event=None):
         self.unscheduleShow()  # 鼠标离开时取消计划任务

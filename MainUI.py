@@ -2,6 +2,7 @@ import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import DND_FILES
+from App import App
 from Lang import Lang
 import ui
 from FontList import FontList
@@ -14,39 +15,39 @@ class MainUI:
     def __init__(self, root):
         self.root = root
         self.stopEvent = threading.Event()    # 程序即将关闭事件
-        gapy = 2    # 控件垂直间距
-        style = ttk.Style()
-        style.map('TEntry', fieldbackground=[('!disabled', 'white')])   # 设置所有输入框非禁用内背景色为白色
-        # style.map('TCombobox', fieldbackground=[('background', 'red')])   # 设置所有输入框外背景色为白色
+        gap = 2 * App.dpiScale        # 控件垂直间距
+        padding = 5 * App.dpiScale    # 窗口边缘距离
+        ui.init()
 
         # 文件打开和保存区 ---------------
         file_frame = ttk.Frame(root)
-        file_frame.grid(row=0, padx=10, pady=10, sticky="we")
+        file_frame.grid(row=0, padx=2*padding, pady=(2*padding, padding), sticky="we")
 
-        ttk.Label(file_frame, text=Lang['Input file'] + ':').grid(row=0, column=0, pady=gapy, sticky="w")
+        ttk.Label(file_frame, text=Lang['Input file'] + ':').grid(row=0, column=0, pady=gap, sticky="w")
         # 这里如果不放在self下，函数执行完后file_entry_text就会被回收，导致事件监听失效
         self.fileEntryText = tk.StringVar()
         self.fileEntry = ttk.Entry(file_frame, textvariable=self.fileEntryText)
-        self.fileEntry.grid(row=0, column=1, columnspan=2, padx=(5, 2), pady=(1, 0), sticky="ew")
+        self.fileEntry.grid(row=0, column=1, columnspan=2, padx=(padding, gap), pady=(1, 0), sticky="ew")
         self.fileEntry.bind('<Return>', self.onFileEntryEnter)
         self.fileEntryText.trace_add('write', self.onFileEntryInsert)
-        tk.Button(file_frame, text="...", command=self.openFile).grid(row=0, column=3, pady=(0, 2))
+        btn_width = 0 if App.platform == App.MACOS else 2 * App.dpiScale
+        ui.Button(file_frame, text="...", width=btn_width, command=self.openFile).grid(row=0, column=3, pady=(0, 2))
 
-        ttk.Label(file_frame, text=Lang['Output file'] + ':').grid(row=1, column=0, pady=gapy, sticky="w")
+        ttk.Label(file_frame, text=Lang['Output file'] + ':').grid(row=1, column=0, pady=gap, sticky="w")
         self.saveMode = tk.IntVar()
         self.saveMode.set(0)
         ttk.Radiobutton(file_frame, text=Lang['Modify source file'], variable=self.saveMode, value=0,
-                        command=self.onSwitchSaveMode).grid(row=1, column=1, padx=5, sticky="w")
+                        command=self.onSwitchSaveMode).grid(row=1, column=1, padx=padding, sticky="w")
 
         # "另存为"Frame，包括一个Radio和一个Entry ----------
         saveas_frame = ttk.Frame(file_frame)
         saveas_frame.grid(row=2, column=1, columnspan=3, sticky="ew")
         ttk.Radiobutton(saveas_frame, text=Lang['Save as'] + ':', variable=self.saveMode, value=1,
-                        command=self.onSwitchSaveMode).pack(side=tk.LEFT, padx=5, pady=gapy)
-        self.dirEntry = ui.PlaceholderEntry(saveas_frame, placeholder=Lang['Leave blank to save to source directory.'])
+                        command=self.onSwitchSaveMode).pack(side=tk.LEFT, padx=padding, pady=gap)
+        self.dirEntry = ui.Entry(saveas_frame, placeholder=Lang['Leave blank to save to source directory.'])
         self.dirEntry.configure(state=tk.DISABLED)
-        self.dirEntry.pack(side=tk.LEFT, padx=(5, 2), pady=(1, 0), fill=tk.X, expand=True)
-        self.openDirBtn = tk.Button(saveas_frame, text="...", state=tk.DISABLED, command=self.openSaveAs)
+        self.dirEntry.pack(side=tk.LEFT, padx=(padding, gap), pady=(1, 0), fill=tk.X, expand=True)
+        self.openDirBtn = ui.Button(saveas_frame, text="...", width=btn_width, state=tk.DISABLED, command=self.openSaveAs)
         self.openDirBtn.pack(side=tk.RIGHT, pady=(0, 2))
 
         # 配置列权重，使输入框能够随窗口大小变化而变化
@@ -54,25 +55,27 @@ class MainUI:
 
         # 字体列表和"载入"按钮 ---------------
         fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
-        fontlist_frame.grid(row=1, padx=5, sticky="we")
-        ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=5)
-        self.loadBtn = tk.Button(fontlist_frame, text=Lang['Load'], width=6, command=self.onLoadBtn, state=tk.DISABLED)
+        fontlist_frame.grid(row=1, padx=padding, sticky="we")
+        ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=padding)
+        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=6*App.dpiScale, command=self.onLoadBtn, state=tk.DISABLED)
         self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
         self.fontList = FontList(root)    # 字体列表
-        self.fontList.grid(row=2, padx=10, pady=5, sticky="nswe")
+        self.fontList.grid(row=2, padx=2*padding, pady=padding, sticky="nswe")
 
         # 底部的状态栏和应用关闭按钮区 --------------
         bottom_frame = ttk.Frame(root)
-        bottom_frame.grid(row=3, padx=10, pady=(0, 10), sticky="ew")
+        bottom_frame.grid(row=3, padx=10, pady=(0, 2*padding), sticky="ew")
         status_label = ttk.Label(bottom_frame)
-        status_label.pack(side=tk.LEFT, padx=(0, 5), fill=tk.X, expand=True)
+        status_label.pack(side=tk.LEFT, padx=(0, padding), fill=tk.X, expand=True)
         ui.StatusBar.setLabel(status_label)
 
-        ttk.Button(bottom_frame, text=Lang['Close'], width=5, command=root.destroy).pack(side=tk.RIGHT, padx=5)
-        ttk.Button(bottom_frame, text=Lang['Apply'], width=5, command=self.onApplyBtn).pack(side=tk.RIGHT, padx=5)
+        ui.Button(bottom_frame, text=Lang['Close'], width=5*App.dpiScale, command=root.destroy) \
+            .pack(side=tk.RIGHT, padx=padding)
+        ui.Button(bottom_frame, text=Lang['Apply'], width=5*App.dpiScale, command=self.onApplyBtn) \
+            .pack(side=tk.RIGHT, padx=padding)
         config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showSettings)
-        config_btn.pack(side=tk.RIGHT, padx=5)
+        config_btn.pack(side=tk.RIGHT, padx=padding)
         ui.ToolTip(config_btn, Lang['Settings'])
 
         # 配置列权重，使列表框能够随窗口大小变化而变化

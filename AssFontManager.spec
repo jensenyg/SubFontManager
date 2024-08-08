@@ -11,7 +11,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2'),
-        ('icon/icon@128.png', 'icon'),
+        ('icon/icon@128.png' sys.platform=='darwin' else 'icon/icon@256.png', 'icon'),
         ('lang', 'lang')
     ],
     hiddenimports=[],

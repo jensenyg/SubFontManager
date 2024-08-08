@@ -1,18 +1,37 @@
 import tkinter as tk
 from tkinter import ttk, font as tkfont
+from App import App
 from .ToolTip import ToolTip
+from .Widgets import Widget
+
+
+class WidgetCell:
+    def __init__(self, widget: Widget, padx=0, pady=0, columnSpan: int = 1):
+        self.widget = widget
+        padx = padx if type(padx) is tuple else (padx, padx)
+        self.padx = (padx[0] * App.dpiScale, padx[1] * App.dpiScale)
+        pady = pady if type(pady) is tuple else (pady, pady)
+        self.pady = (pady[0] * App.dpiScale, pady[1] * App.dpiScale)
+        self.columnSpan = columnSpan
 
 
 class WidgetRow(tk.Frame):
     """行对象，继承自Frame，提供高亮功能，同时辅助WidgetTable.addRow函数进行类型检查"""
     HIGHLIGHT_COLOR = 'lightskyblue'
-    NORMAL_COLOR = 'white'
+
+    def __init__(self, *args, **kwargs):
+        kwargs['bg'] = Widget.bg
+        super().__init__(*args, **kwargs)
+        self.cells = []
+
+    def addCell(self, widget: Widget, padx=0, pady=0, columnSpan: int = 1):
+        self.cells.append(WidgetCell(widget, padx, pady, columnSpan))
 
     def setHighLight(self, highlight: bool = True):
-        color = self.HIGHLIGHT_COLOR if highlight else self.NORMAL_COLOR
-        self.configure(background=color)
-        for widget in self.children.values():
-            widget.configure(background=color)
+        color = self.HIGHLIGHT_COLOR if highlight else Widget.bg
+        self.configure(bg=color)
+        for cell in self.cells:
+            cell.widget.setBackground(color)
 
 
 class WidgetTable(tk.Frame):
@@ -66,7 +85,7 @@ class WidgetTable(tk.Frame):
         :param toolTip: 气泡提示，鼠标悬浮后显示，None则没有
         """
         # 不管是否需adjuster，所有的都放在Frame里，通过结构一致保证pack后的高度一致
-        widget = tk.Frame(self.headerBar, bd=1, relief='groove')
+        widget = tk.Frame(self.headerBar, bd=1, relief='raised')
         if adjuster and adjuster in (tk.LEFT, tk.RIGHT):
             adjuster_frame = tk.Frame(widget, width=self.adjusterWidth, cursor='sb_h_double_arrow')
             adjuster_frame.pack(side=adjuster, fill=tk.Y)
@@ -82,8 +101,8 @@ class WidgetTable(tk.Frame):
 
         self.headers.append({
             'heading': heading,
-            'width': width,
-            'minWidth': max(minWidth, self.adjusterWidth),
+            'width': width * App.dpiScale,
+            'minWidth': max(minWidth * App.dpiScale, self.adjusterWidth),
             'weight': 0 if width else weight,
             'weighted': weight != 0,
             'adjuster': adjuster,
@@ -91,7 +110,7 @@ class WidgetTable(tk.Frame):
         })
 
     @staticmethod
-    def bindCallbackToFirst(widget, sequence, callback):
+    def _bindCallbackToFirst(widget, sequence, callback):
         """为控件bind事件和回调函数，但将回调函数添加到回调序列的第一位"""
         callbacks_tcl = widget.bind(sequence)    # 获取当前回调函数序列，该序列是一个“Tcl命令字符串”
         if callbacks_tcl:
@@ -106,55 +125,65 @@ class WidgetTable(tk.Frame):
 
     def newRow(self) -> WidgetRow:
         """生成一个新行对象，将行内元素插入到该对象后addRow即可创建新行"""
-        return WidgetRow(self.scrollableFrame, bg=self.bg)
+        return WidgetRow(self.scrollableFrame)
 
     def addRow(self, row: WidgetRow):
         """添加新行，row中的每一个对象将成为行内的一列"""
         if type(row) is not WidgetRow:
             raise TypeError('Only WidgetRow type (created by newRow() method) is accepted.')
-        row_cells = list(row.children.values())
-        for cell in row_cells:
-            cell.pack(side=tk.LEFT)
+
+        for cell in row.cells:
+            cell.widget.pack(side=tk.LEFT, pady=cell.pady, anchor=tk.W)
             # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
-            self.bindCallbackToFirst(cell, '<Button-1>', self.onRowSelect)
+            self._bindCallbackToFirst(cell.widget, '<Button-1>', self.onRowSelect)
         row.pack(fill=tk.X, expand=True)
         # 为行对象本身绑定激活事件，因为控件周围可能会有空隙
-        self.bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
+        self._bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
+        
         self.rows.append(row)
-        self.cells.append(row_cells)
+        self.cells.append(row.cells)
 
-    def addSeparateRow(self, sepText: str = None, padding: tuple = (3, 5, 4, 33), lineLength: int = 300):
-        """
+    def addSeparateRow(self, sepText: str = None, indent: int = 0, padx=0, pady=0, lineLength: int = 300):
+        """上右下左
         插入分隔行，包含一段文字和一条分隔线
         :param sepText: 行内文字
-        :param padding: 文字四周的空白宽度，顺序为：上右下左，其中左为跟左边框的距离，右为跟右侧线和左侧线的距离
+        :param indent: 文字与左边框的距离
+        :param padx: 文字左右与线的距离
+        :param pady: 文字上下与线的距离
         :param lineLength: 分隔线的长度
         """
+        indent *= App.dpiScale
+        padx = padx if type(padx) is tuple else (padx, padx)
+        padx = (padx[0] * App.dpiScale, padx[1] * App.dpiScale)
+        pady = pady if type(pady) is tuple else (pady, pady)
+        pady = (pady[0] * App.dpiScale, pady[1] * App.dpiScale)
+
         # 绘制一个Canvas作为分隔行
         sep_row = tk.Canvas(self.scrollableFrame, bg=self.bg, highlightthickness=0)
         if sepText:    # 绘制字体
-            # 中文斜体需要字体支持，可能无法显示
-            sep_row.create_text(padding[3], padding[0], text=sepText, anchor=tk.NW,
-                                fill="grey", font=tkfont.Font(slant=tkfont.ITALIC))
+            font = Widget.defaultFont.copy()
+            font.configure(slant=tkfont.ITALIC)    # 中文斜体需要字体支持，mac下可能无效
+            sep_row.create_text(indent + padx[0], pady[0], text=sepText, anchor=tk.NW, fill="darkgray", font=font)
         x0, y0, x1, y1 = sep_row.bbox("all")  # 获取所有内容的边界框
-        text_height = y1 - y0 + padding[0] + padding[2]
-        sep_row.config(height=text_height)
+        text_height = y1 - y0
+        sep_row.config(height=text_height + pady[0] + pady[1])
         if lineLength:    # 绘制分隔线
-            text_width = x1 - x0 + padding[1] + padding[3]
-            center_y = text_height / 2
-            sep_row.create_line(5, center_y, padding[3] - padding[1], center_y, fill="grey")    # 绘制左侧线
-            sep_row.create_line(text_width - 2, center_y, lineLength, center_y, fill="grey")    # 绘制右侧线
+            lineLength *= App.dpiScale
+            center_y = text_height / 2 + pady[0]
+            sep_row.create_line(5*App.dpiScale, center_y, indent, center_y, fill="darkgray")    # 绘制左侧线
+            sep_row.create_line(x1 + padx[1], center_y, lineLength, center_y, fill="darkgray")    # 绘制右侧线
         sep_row.pack(fill=tk.X, expand=True)
         self.rows.append(sep_row)
 
     def clearRows(self):
         """清除列表内的所有行，但保留列设置"""
         for row in self.rows:
+            row.master.pack_forget()
             row.pack_forget()
             # row.destroy()
         for row_cells in self.cells:
             for cell in row_cells:
-                cell.place_forget()
+                cell.widget.place_forget()
         for widget in self.scrollableFrame.winfo_children():
             widget.destroy()
         self.rows = []
@@ -242,6 +271,7 @@ class WidgetTable(tk.Frame):
             total_weight += column['weight']
 
         remnant_width = max(remnant_width, 0)
+        # 设置列标题宽度
         xOffset = 0
         for i, column in enumerate(self.headers):
             if column['weighted']:    # 权重优先
@@ -249,10 +279,28 @@ class WidgetTable(tk.Frame):
                 remnant_width -= column['width']
                 total_weight -= column['weight']
             column['widget'].place(x=xOffset, y=0, width=column['width'], anchor=tk.NW)
-            for row_cells in self.cells:
-                if i < len(row_cells):
-                    row_cells[i].place(x=xOffset, y=0, width=column['width'], anchor=tk.NW)
             xOffset += column['width']
+
+        # 设置列元素宽度
+        for row_cells in self.cells:
+            xOffset = 0
+            j = 0
+            for i, cell in enumerate(row_cells):
+                width = 0
+                for k in range(j, j + cell.columnSpan):
+                    if k >= len(self.headers):
+                        break
+                    width += self.headers[k]['width']
+                j += cell.columnSpan
+                h = cell.widget.master.winfo_height()
+                cell.widget.place(
+                    x=xOffset + cell.padx[0],
+                    y=h * 0.5 + cell.pady[0] - cell.pady[1],
+                    width=width - cell.padx[0] - cell.padx[1],
+                    height=h - cell.pady[0] - cell.pady[1] - 2,    # 减去2px，切掉组合框上下各1px，主要为了mac下的效果
+                    anchor=tk.W
+                )
+                xOffset += width
 
     def onMouseWheel(self, event):
         if self.scrollbar.get() == (0.0, 1.0):

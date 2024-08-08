@@ -9,7 +9,7 @@ class PopupWindow(tk.Toplevel):
         self.title(title)
         self.transient(master)  # 将弹窗设置为主窗口的临时窗口
         self.grab_set()  # 将弹窗设置为模态窗口（阻止与其他窗口的交互）
-        self.attributes("-topmost", True)  # 让弹窗始终在前方
+        # self.attributes("-topmost", True)  # 让弹窗始终在前方
         # self.wm_attributes("-topmost", 1)
         self.resizable(False, False)
 

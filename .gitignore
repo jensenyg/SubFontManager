@@ -8,3 +8,5 @@ temp*.py
 fontcache.json
 config.ini
 *.psd
+.venv
+test*

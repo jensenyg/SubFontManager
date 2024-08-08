@@ -4,25 +4,11 @@ import json
 from fontTools.ttLib import TTFont
 from fontTools.ttLib.ttCollection import TTCollection
 from fontTools.subset import Subsetter, Options
-from Global import AppInfo
+from App import App
 from Lang import Lang
 from FindSystemFonts import findSystemFonts
 # from matplotlib.font_manager import findSystemFonts
 from ui import StatusBar
-
-
-def get_cache_dir(mkdir: bool = False) -> str:
-    """
-    获取一个可用于保存字体缓存的路径.
-    在Windows和Linux中可以保存在程序目录中，在macOS中不能，所以保存到~/Library/Caches中
-    """
-    if AppInfo.platform == AppInfo.MACOS and not AppInfo.isInDev:  # macOS且非调试阶段
-        cache_dir = AppInfo.getSystemCacheDirectory()
-        if mkdir:
-            os.makedirs(cache_dir, exist_ok=True)
-    else:   # Linux and Windows
-        cache_dir = AppInfo.dirName
-    return cache_dir
 
 
 class FontManager:
@@ -30,7 +16,14 @@ class FontManager:
 
     LOCAL = 'local'
     SYSTEM = 'system'
-    cacheFilePath = os.path.join(get_cache_dir(mkdir=True), 'fontcache.json')    # 字体缓存文件路径
+
+    # 获取字体缓存文件路径
+    if App.platform == App.MACOS and not App.isInDev:    # macOS且非调试阶段
+        cacheFilePath = App.getSystemCacheDirectory()
+        os.makedirs(cacheFilePath, exist_ok=True)
+    else:   # Linux and Windows
+        cacheFilePath = App.dirName
+    cacheFilePath = os.path.join(cacheFilePath, 'fontcache.json')    # 字体缓存文件路径
 
     # 对于多字体的文件（如TTC），每个字体对象的名称分别保存在'fontnames'列表内
     # {fontpath: {'fontnames': [{'familynames': str, 'fullnames': str, 'style': str}], 'filesize': int}}
@@ -51,7 +44,7 @@ class FontManager:
         # 读取缓存文件
         if not ignoreCache and os.path.isfile(cls.cacheFilePath) and os.access(cls.cacheFilePath, os.R_OK):
             try:
-                with open(cls.cacheFilePath, 'r') as file:
+                with open(cls.cacheFilePath, 'r', encoding='utf-8') as file:
                     cache_str = file.read()
                 cls.systemFontsInfo = eval(cache_str)
                 # cls.systemFontsCache.sort(key=lambda e: e['fontpath'])
@@ -77,6 +70,7 @@ class FontManager:
             cache_path = cache_font_paths[j] if j < len(cache_font_paths) else None
             system_file_size = os.path.getsize(system_path)
             if cache_path == system_path and cls.systemFontsInfo[cache_path]['filesize'] == system_file_size:
+                # 缓存字体与实际匹配无改变
                 i += 1
                 j += 1
             elif not cache_path or cache_path > system_path:   # 系统中的字体是新增的，加入到缓存中
@@ -108,11 +102,12 @@ class FontManager:
                 cls.systemFontsInfo = {key: cls.systemFontsInfo[key]
                                        for key in sorted(cls.systemFontsInfo.keys())}
                 # 稍微对缓存文本格式化一下
-                cache_list = [f'"{path}": {json.dumps(info, ensure_ascii=False)}'
+                cache_list = [f'{json.dumps(path, ensure_ascii=False)}: {json.dumps(info, ensure_ascii=False)}'
                               for path, info in cls.systemFontsInfo.items()]
                 cache_str = '{\n' + ',\n'.join(cache_list) + '\n}'
+                # cache_str = json.dumps(cls.systemFontsInfo, indent=4, ensure_ascii=False)
                 try:
-                    with open(cls.cacheFilePath, 'w') as file:
+                    with open(cls.cacheFilePath, 'w', encoding='utf-8') as file:
                         file.write(cache_str)
                 except Exception as e:
                     if 'file' in locals() and file:

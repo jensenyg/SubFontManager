@@ -142,7 +142,7 @@ class SubStationAlpha:
         return cls(path)
 
     def _load(self):
-        with open(self.filePath, 'r') as file:
+        with open(self.filePath, 'r', encoding='utf-8') as file:
             section = None
             section_pattern = re.compile(r'^\[.*\]')
             font_name = None    # 用于在循环中将Font多行编码连接起来
@@ -210,7 +210,7 @@ class SubStationAlpha:
             messagebox.showerror(Lang['Error'], Lang['Unable to write file {p}.'].format(p=path))
             return
 
-        with open(path, 'w') as file:
+        with open(path, 'w', encoding='utf-8') as file:
             # 写入Info
             file.write('[Script Info]\n')
             file.write('\n'.join(self.infoList) + '\n')
