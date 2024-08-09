@@ -18,7 +18,8 @@ class SettingsWindow(ui.PopupWindow):
         height = 0    # 手动统计高度，以便在各种DPI下窗口大小都能自动适应
 
         # 添加图标
-        img_path = os.path.join(App.getResourcesDirectory(), 'icon', 'icon@256.png' if App.dpiScale > 1 else 'icon@128.png')
+        img_path = os.path.join(App.getResourcesDirectory(), 'icon',
+                                'icon@256.png' if App.dpiScale > 1 else 'icon@128.png')
         img = tk.PhotoImage(file=img_path)
         text = tk.Label(self, image=img)
         text.pack(pady=(gap, 0))
@@ -77,12 +78,12 @@ class SettingsWindow(ui.PopupWindow):
         new_lang = self.lang_var.get()
         if new_lang != Lang.currentLang:
             Lang.saveSetting(new_lang)
-        if new_lang != Lang.initLang:
-            if messagebox.askyesno(Lang['Reminding'],
-                                   Lang['Language changing requires restart to take effect, restart now?'],
-                                   parent=self):
-                self.destroy()
-                self.master.destroy()
-                python = sys.executable
-                os.execl(python, python, *sys.argv)
+        if new_lang != Lang.initLang and \
+            messagebox.askyesno(Lang['Reminding'],
+                                Lang['Language changing requires restart to take effect, restart now?'],
+                                parent=self):
+            self.destroy()
+            self.master.destroy()
+            python = sys.executable
+            os.execl(python, python, *sys.argv)
         self.destroy()

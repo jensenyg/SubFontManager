@@ -17,7 +17,8 @@ class App:
     shortName = name.replace(' ', '')   # 去掉空格的名称，用来做目录名
     dirName, exeName = os.path.split(sys.argv[0])   # 程序文件的路径和名称
     isInDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
-    dpiScale = 1    # DPI缩放比例
+    dpiScale = 1.0    # DPI缩放比例
+    Config: ConfigParserWraper = None    # 程序配置对象，可读写配置
 
     @classmethod
     def setDpiAwareness(cls):
@@ -61,8 +62,8 @@ class App:
             path = os.path.join(os.path.expanduser('~/.cachelocal/share'), cls.shortName)
         return path
 
-    # ini配置文件路径
-    _ini_path = getSystemDataDirectory() if platform == MACOS and not isInDev else '.'
-    _ini_path = os.path.join(_ini_path, 'config.ini')
 
-    Config = ConfigParserWraper(_ini_path)    # 程序配置对象，可读写
+# ini配置文件路径
+_ini_path = App.getSystemDataDirectory() if App.platform == App.MACOS and not App.isInDev else '.'
+_ini_path = os.path.join(_ini_path, 'config.ini')
+App.Config = ConfigParserWraper(_ini_path)

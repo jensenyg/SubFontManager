@@ -1,3 +1,4 @@
+import os.path
 import threading
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -47,7 +48,8 @@ class MainUI:
         self.dirEntry = ui.Entry(saveas_frame, placeholder=Lang['Leave blank to save to source directory.'])
         self.dirEntry.configure(state=tk.DISABLED)
         self.dirEntry.pack(side=tk.LEFT, padx=(padding, gap), pady=(1, 0), fill=tk.X, expand=True)
-        self.openDirBtn = ui.Button(saveas_frame, text="...", width=btn_width, state=tk.DISABLED, command=self.openSaveAs)
+        self.openDirBtn = ui.Button(saveas_frame, text="...", width=btn_width, state=tk.DISABLED,
+                                    command=self.openSaveAs)
         self.openDirBtn.pack(side=tk.RIGHT, pady=(0, 2))
 
         # 配置列权重，使输入框能够随窗口大小变化而变化
@@ -57,7 +59,8 @@ class MainUI:
         fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
         fontlist_frame.grid(row=1, padx=padding, sticky="we")
         ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=padding)
-        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=6*App.dpiScale, command=self.onLoadBtn, state=tk.DISABLED)
+        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=6*App.dpiScale, state=tk.DISABLED,
+                                 command=self.onLoadBtn)
         self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
         self.fontList = FontList(root)    # 字体列表
@@ -65,7 +68,7 @@ class MainUI:
 
         # 底部的状态栏和应用关闭按钮区 --------------
         bottom_frame = ttk.Frame(root)
-        bottom_frame.grid(row=3, padx=10, pady=(0, 2*padding), sticky="ew")
+        bottom_frame.grid(row=3, padx=2*padding, pady=(0, 2*padding), sticky="ew")
         status_label = ttk.Label(bottom_frame)
         status_label.pack(side=tk.LEFT, padx=(0, padding), fill=tk.X, expand=True)
         ui.StatusBar.setLabel(status_label)
@@ -93,64 +96,88 @@ class MainUI:
         threading.Thread(target=FontManager.initSystemFontList, kwargs={'stopEvent': self.stopEvent}).start()
 
     def openFile(self):
+        """点击打开文件"""
         file_name = filedialog.askopenfilename(
             filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
         if file_name:
-            self.fileEntryText.set(file_name)
-        self.root.focus_force()    # 不用force有时焦点抢不回来
-        self.onLoadBtn()
+            self.fileEntry.delete(0, tk.END)
+            self.fileEntry.insert(0, file_name)
+            self.onLoadBtn()
+        self.fileEntry.focus_set()
 
     def openSaveAs(self):
+        """点击另存为"""
+        base_path = self.dirEntry.get()
+        if not base_path:
+            base_path = self.fileEntry.get()
         file_path = filedialog.asksaveasfilename(
-            initialdir=".",
+            initialdir=os.path.dirname(base_path),
             initialfile="newsubtitle",
             defaultextension=".ass",
             filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")]
         )
+        self.dirEntry.focus_set()
         if file_path:
             self.dirEntry.delete(0, tk.END)
             self.dirEntry.insert(0, file_path)
-        self.root.focus_force()    # 不用force有时焦点抢不回来
 
     def onDrop(self, event):
+        """拖放文件响应"""
         file_path = event.data.strip('{}')
         if not file_path.endswith(('.ass', '.ssa')):
             messagebox.showerror(Lang['Error'], Lang['Only .ass and .ssa file are supported.'])
+            self.root.focus_set()
             return
         self.fileEntry.delete(0, tk.END)
         self.fileEntry.insert(0, event.data)
         self.onLoadBtn()
 
     def onSwitchSaveMode(self):
+        """点击切换保存位置"""
         self.dirEntry.configure(state=tk.DISABLED if self.saveMode.get() == 0 else tk.NORMAL, background='red')
         self.openDirBtn.configure(state=tk.DISABLED if self.saveMode.get() == 0 else tk.NORMAL)
 
     def onFileEntryInsert(self, *args):
+        """输入文件框值改变响应"""
         self.loadBtn.configure(state=tk.NORMAL if self.fileEntry.get() else tk.DISABLED)
 
     def onFileEntryEnter(self, *args):
-        self.onLoadBtn()
-
-    def onLoadBtn(self, *args):
-        path = self.fileEntry.get()
-        # StatusBar.set('正在解析文件...')
-        subtitleObj = SubStationAlpha.load(path)
-        if subtitleObj:
-            # StatusBar.set('正在查找字体文件...')
-            self.fontList.loadSubtitle(subtitleObj)
-            self.loadBtn.configure(text=Lang['Load'] if subtitleObj is None else Lang['Reload'], state=tk.NORMAL)
-        # StatusBar.set('文件载入完成.', 3)
-
-    def onApplyBtn(self, *args):
-        res = self.fontList.applyEmbedding(self.dirEntry.get())
-        self.root.focus_set()   # applyEmbeding中可能会有弹窗，需手动取回焦点
-        if res != 1 and self.dirEntry.isblank:    # 如果嵌入成功且是覆盖原文件，则重新载入
+        """输入文件框回车响应"""
+        if self.fileEntry.get():
             self.onLoadBtn()
 
+    def onLoadBtn(self, status: bool = True):
+        """status: 是否输出状态栏信息"""
+        subtitleObj = SubStationAlpha.load(self.fileEntry.get())
+        if subtitleObj:
+            self.fontList.loadSubtitle(subtitleObj)
+            self.loadBtn.configure(text=Lang['Load'] if subtitleObj is None else Lang['Reload'], state=tk.NORMAL)
+            if status and not FontManager.isIndexing:   # 索引字体时不输出状态栏，否则会冲掉“正在索引”的信息
+                ui.StatusBar.set(Lang['File loaded'] + '.', 3)
+        else:
+            self.root.focus_set()   # load中可能有弹窗，需手动取回焦点
+
+    def onApplyBtn(self, status: bool = True):
+        """
+        点击应用按钮。
+        status: 是否输出状态栏信息
+        """
+        res = self.fontList.applyEmbedding(self.dirEntry.get())
+        if res != 0:
+            self.root.focus_set()  # applyEmbeding中可能会有弹窗，需手动取回焦点
+        if res != 1:    # 如果有字体嵌入成功
+            if status:
+                ui.StatusBar.set(Lang['Finished'] + '. ', 3)
+            if self.dirEntry.isblank:    # 如果覆盖原文件，则重新载入
+                self.onLoadBtn()
+                if status:
+                    ui.StatusBar.append(Lang['File reloaded'] + '.', 3)
+
     def showSettings(self, event):
+        """点击设置按钮"""
         SettingsWindow(self.root)
 
     def onDestroy(self, event):
-        if self.stopEvent.is_set():    # 窗口关闭时Destroy事件会被触发很多次，只响应一次即可
-            return
-        self.stopEvent.set()    # 设置停止事件，让可能正在检索字体的线程尽快停止
+        """关闭窗口响应"""
+        if event.widget is self.root:   # Destroy事件也会冒泡上浮，需要筛选响应
+            self.stopEvent.set()    # 设置停止事件，让可能正在检索字体的线程尽快停止

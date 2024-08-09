@@ -389,17 +389,19 @@ class SubStationAlpha:
         :param embedName: 字体内部文件名，可能重复
         :param fontName: 字体名称
         :param style: 字体样式名称，缺省则默认Regular
-        :return: 0:成功，1:字体名无法匹配到文件，2:文件保持失败
+        :return: 0:成功，1:字体名无法匹配到文件，2:文件保存失败
         """
+        # 从文件中查找目标字体的序号
         index = self.embedFontMgr.indexOfFontInPath(embedName, fontName, style)
-        # 找到提取的目标字体
-        if index == -1:
+        if index == -1:   # 没找到要提取的字体
+            messagebox.showerror(Lang['Error'], "Can not find embeded font {f} in subtitle.".format(f=embedName))
             return 1
-        if not os.access(os.path.dirname(savePath), os.W_OK):
-            messagebox.showerror(Lang['Error'], "Unable to write file {p}.".format(p=savePath))
         try:
+            if not os.access(os.path.dirname(savePath), os.W_OK):
+                raise ValueError()
             with open(savePath, 'wb') as file:
                 file.write(UUDecode(self.fontList[embedName][index]))
             return 0
         except Exception as e:
+            messagebox.showerror(Lang['Error'], "Unable to write file {p}.".format(p=savePath))
             return 2

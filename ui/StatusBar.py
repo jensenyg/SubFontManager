@@ -7,7 +7,7 @@ class StatusBar:
 
     @classmethod
     def setLabel(cls, labelWidget):
-        """设定一个Label用于显示文字"""
+        """设定一个Label控件用于显示文字"""
         cls.labelWidget = labelWidget
 
     @classmethod
@@ -22,7 +22,7 @@ class StatusBar:
             cls.labelWidget.after_cancel(cls.timer)
             cls.timer = None
         if duration > 0:
-            cls.labelWidget.after(duration * 1000, cls.clear)
+            cls.timer = cls.labelWidget.after(duration * 1000, cls.clear)
 
     @classmethod
     def append(cls, text: str, duration: int = -1):
@@ -37,3 +37,6 @@ class StatusBar:
     def clear(cls):
         """清空状态栏中的文字"""
         cls.labelWidget.config(text='')
+        if cls.timer:
+            cls.labelWidget.after_cancel(cls.timer)
+            cls.timer = None

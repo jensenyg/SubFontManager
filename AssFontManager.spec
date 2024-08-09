@@ -4,14 +4,22 @@ import sys
 import site
 
 icon_names = {'darwin': 'icon.icns', 'win32': 'icon.ico', 'linux': 'icon.png', 'linux2': 'icon.png'}
+tkdnd_path = None
+for path in site.getsitepackages():
+    tkdnd_path = os.path.join(path, 'tkinterdnd2')
+    if os.path.exists(tkdnd_path):
+        break
+else:
+    raise ImportError("Can not find path to 'tkinterdnd2'.")
+
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
     datas=[
-        (os.path.join(site.getsitepackages()[0], 'tkinterdnd2'), 'tkinterdnd2'),
-        ('icon/icon@128.png' sys.platform=='darwin' else 'icon/icon@256.png', 'icon'),
+        (tkdnd_path, 'tkinterdnd2'),
+        ('icon/icon@128.png' if sys.platform=='darwin' else 'icon/icon@256.png', 'icon'),
         ('lang', 'lang')
     ],
     hiddenimports=[],

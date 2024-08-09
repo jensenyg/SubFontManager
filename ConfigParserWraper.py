@@ -12,7 +12,7 @@ class ConfigParserWraper:
                 self.parser.read_file(f)
             # self.parser.read(self.path)
 
-    def get(self, section: str, key: str = None, default: str = None, saveDefault: bool = True) -> (str, iter):
+    def get(self, section: str, key: str = None, default=None, saveDefault: bool = True) -> (str, iter):
         """
         读取ini配置值
         :param section: section
@@ -30,7 +30,7 @@ class ConfigParserWraper:
             self.set(section, key, default)
         return default
 
-    def set(self, section: str, key: str, value: str = None) -> None:
+    def set(self, section: str, key: str, value=None) -> None:
         """设置ini配置值"""
         if key is None:
             key = ''

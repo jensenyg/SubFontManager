@@ -17,7 +17,7 @@ class WidgetCell:
 
 class WidgetRow(tk.Frame):
     """行对象，继承自Frame，提供高亮功能，同时辅助WidgetTable.addRow函数进行类型检查"""
-    HIGHLIGHT_COLOR = 'lightskyblue'
+    HIGHLIGHT_COLOR = 'lightskyblue'    # 高亮背景色
 
     def __init__(self, *args, **kwargs):
         kwargs['bg'] = Widget.bg
@@ -38,7 +38,7 @@ class WidgetTable(tk.Frame):
     """由自定义控件组成的列表，支持滚动，并可以自定义列标题和调整宽度"""
     def __init__(self, **kwargs):
         self.bd = 1
-        self.bg = 'white'
+        self.bg = Widget.bg
         kwargs.update({'bd': self.bd, 'bg': self.bg})
         super().__init__(**kwargs, relief="sunken")
 

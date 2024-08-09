@@ -76,7 +76,7 @@ class FontList(ui.WidgetTable):
                 'subset': tk.BooleanVar(),          # 是否子集化
                 'subsetWidget': None,               # 子集化复选框控件
                 'text': item['text'],               # 字体覆盖的文本
-                'source': tk.StringVar(),           # 文件源
+                'source': tk.StringVar(),           # 文件源，注意此变量可能会取到占位符
                 'sourceOptions': list(self.SrcCmbOptions.values()),     # 文件源下拉列表内容
                 'sourceWidget': None,       # 文件源组合框控件，在添加行时填写
                 'modified': False           # 字体内嵌状态是否被修改
@@ -132,7 +132,7 @@ class FontList(ui.WidgetTable):
         """
         应用字体内嵌
         :param savePath: 保存路径，缺省则写入到源文件
-        :return: 0: 成功，1: 列表参数错误，未执行内嵌，2: 仅部分文件内嵌成功
+        :return: 0: 成功，1: 列表参数错误，未执行内嵌，2: 仅部分文件内嵌成功（暂未实现）
         """
         warnings = []
         have_task = False
@@ -351,12 +351,9 @@ class FontList(ui.WidgetTable):
                 defaultextension=".ttf",
                 filetypes=[("TrueType Font", "*.ttf"), ("All files", "*.*")]
             )
-            cmb_src.master.focus_set()
             if file_path:
-                res = self.subtitleObj.extractFont(
-                    rowItem['embedName'], file_path, rowItem['fontName'], rowItem['style'])
-                if res != 0:
-                    raise Exception(Lang['Save to {p} failed!'].format(p=file_path))
+                self.subtitleObj.extractFont(rowItem['embedName'], file_path, rowItem['fontName'], rowItem['style'])
+            cmb_src.master.focus_set()
             filename = cmb_src.currentValue
 
         cmb_src.set(filename)

@@ -25,11 +25,15 @@ class FontManager:
         cacheFilePath = App.dirName
     cacheFilePath = os.path.join(cacheFilePath, 'fontcache.json')    # 字体缓存文件路径
 
+    # 系统字体缓存信息 --------
     # 对于多字体的文件（如TTC），每个字体对象的名称分别保存在'fontnames'列表内
     # {fontpath: {'fontnames': [{'familynames': str, 'fullnames': str, 'style': str}], 'filesize': int}}
-    systemFontsInfo = {}
-    systemFontsFamilyNames = {}     # {familyname: {style: (fontpath, index)}}
-    systemFontsFullNames = {}       # {fullname: (fontpath, index)}
+    systemFontsInfo = {}    # 以路径索引的字体信息，用于检索字体文件信息
+    # {familyname: {style: (fontpath, index)}}
+    systemFontsFamilyNames = {}     # 以字体家族名索引的字体信息，用于以家族名查找字体文件
+    # {fullname: (fontpath, index)}
+    systemFontsFullNames = {}       # 以字体全名索引的字体信息，用于以全名查找字体文件
+    isIndexing = False    # 是否正在索引字体
 
     @classmethod
     def initSystemFontList(cls, ignoreCache: bool = False, stopEvent=None):
@@ -40,6 +44,8 @@ class FontManager:
         """
         if stopEvent and stopEvent.is_set():
             return
+
+        cls.isIndexing = True
 
         # 读取缓存文件
         if not ignoreCache and os.path.isfile(cls.cacheFilePath) and os.access(cls.cacheFilePath, os.R_OK):
@@ -56,24 +62,31 @@ class FontManager:
         if stopEvent and stopEvent.is_set():
             return
 
-        # 比较缓存列表和系统实际列表的差异，查缺补漏 -----------
+        # 比较缓存列表和系统实际列表的差异，查缺补漏，这里同时遍历两个有序列表，依次对照 -----------
         system_font_paths = sorted(findSystemFonts())    # 列出全部系统字体路径
         cache_font_paths = sorted(cls.systemFontsInfo.keys())
-        cache_modified = False    # 缓存修改标记，用于判断是否需要重新保存缓存
         fontMgr = cls()
+        cache_modified = False    # 缓存修改标记，用于判断是否需要重新保存缓存
         statusbar_indexing_flag = False     # 状态栏"正在索引"标记
-        i, j = 0, 0
+        i = j = 0   # i用于遍历system_font_paths，j用于遍历cache_font_paths
+
         while i < len(system_font_paths):
             if stopEvent and stopEvent.is_set():
                 return
             system_path = system_font_paths[i]
             cache_path = cache_font_paths[j] if j < len(cache_font_paths) else None
             system_file_size = os.path.getsize(system_path)
-            if cache_path == system_path and cls.systemFontsInfo[cache_path]['filesize'] == system_file_size:
-                # 缓存字体与实际匹配无改变
+            if cache_path and cache_path == system_path and \
+                    cls.systemFontsInfo[cache_path]['filesize'] == system_file_size:
+                # 缓存字体与系统字体路径相同，大小也相同，则视为未改变
                 i += 1
                 j += 1
-            elif not cache_path or cache_path > system_path:   # 系统中的字体是新增的，加入到缓存中
+            elif cache_path and cache_path < system_path:    # 缓存中的字体已经无效，删除缓存条目
+                cls.systemFontsInfo.pop(cache_path)
+                cache_modified = True
+                j += 1
+            else:   # cache_path is None or cache_path>system_path or (cache_path==system_path and filesize!=...)
+                # 系统中的字体是新增的，加入到缓存中
                 if not statusbar_indexing_flag:
                     StatusBar.set(Lang['Indexing system fonts'] + '... ')
                     statusbar_indexing_flag = True
@@ -84,9 +97,14 @@ class FontManager:
                 else:
                     print(f"Warning: 无法读取系统字体信息: {system_path}, 已忽略该字体.")
                 i += 1
-            else:    # 缓存中的字体已经无效，删除缓存条目
-                cls.systemFontsInfo.pop(cache_path)
-                cache_modified = True
+                if cache_path == system_path:   # 如果路径相同而大小不同，则此时缓存条目已更新
+                    j += 1
+
+        # 如果缓存列表里还有剩余未遍历的条目，则都是失效条目，删除它们
+        while j < len(cache_font_paths):
+            cls.systemFontsInfo.pop(cache_font_paths[j])
+            cache_modified = True
+            j += 1
 
         # 基于systemFontsInfo创建字体Name索引表
         cls.systemFontsFamilyNames, cls.systemFontsFullNames = cls._buildFontIndex(cls.systemFontsInfo)
@@ -116,10 +134,12 @@ class FontManager:
             else:
                 save_failed = True
 
+        cls.isIndexing = False
+
         if save_failed:
             StatusBar.append(Lang['saving cache file failed.'], 3)
         elif statusbar_indexing_flag:
-            StatusBar.append(Lang['done.'], 3)
+            StatusBar.append(Lang['done'] + '.', 3)
 
     @staticmethod
     def _buildFontIndex(fontsInfo: dict) -> tuple:
