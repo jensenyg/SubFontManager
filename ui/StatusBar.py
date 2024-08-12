@@ -11,18 +11,20 @@ class StatusBar:
         cls.labelWidget = labelWidget
 
     @classmethod
-    def set(cls, text: str = None, duration: int = -1):
+    def set(cls, text: str = None, duration: int = -1, override: bool = True):
         """
         设置状态栏文字
         :param text: 文字
         :param duration: 持续时间，超过该时间后状态栏将清空。>0：时间，=0：无动作，保持原来的计时，-1：持续时间设定为永远。
+        :param override: 是否覆盖当前显示的文字
         """
-        cls.labelWidget.config(text=text)
-        if duration != 0 and cls.timer:
-            cls.labelWidget.after_cancel(cls.timer)
-            cls.timer = None
-        if duration > 0:
-            cls.timer = cls.labelWidget.after(duration * 1000, cls.clear)
+        if override or not cls.labelWidget.cget('text'):
+            cls.labelWidget.config(text=text)
+            if duration != 0 and cls.timer:
+                cls.labelWidget.after_cancel(cls.timer)
+                cls.timer = None
+            if duration > 0:
+                cls.timer = cls.labelWidget.after(duration * 1000, cls.clear)
 
     @classmethod
     def append(cls, text: str, duration: int = -1):

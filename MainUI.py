@@ -75,8 +75,8 @@ class MainUI:
 
         ui.Button(bottom_frame, text=Lang['Close'], width=5*App.dpiScale, command=root.destroy) \
             .pack(side=tk.RIGHT, padx=padding)
-        ui.Button(bottom_frame, text=Lang['Apply'], width=5*App.dpiScale, command=self.onApplyBtn) \
-            .pack(side=tk.RIGHT, padx=padding)
+        self.applyBtn = ui.Button(bottom_frame, text=Lang['Apply'], width=5*App.dpiScale, command=self.onApplyBtn)
+        self.applyBtn.pack(side=tk.RIGHT, padx=padding)
         config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showSettings)
         config_btn.pack(side=tk.RIGHT, padx=padding)
         ui.ToolTip(config_btn, Lang['Settings'])
@@ -124,13 +124,14 @@ class MainUI:
     def onDrop(self, event):
         """拖放文件响应"""
         file_path = event.data.strip('{}')
-        if not file_path.endswith(('.ass', '.ssa')):
+        if file_path.endswith(('.ass', '.ssa')):
+            self.fileEntry.delete(0, tk.END)
+            self.fileEntry.insert(0, event.data)
+            self.onLoadBtn()
+        else:
+            obj = self.root.focus_get()
             messagebox.showerror(Lang['Error'], Lang['Only .ass and .ssa file are supported.'])
-            self.root.focus_set()
-            return
-        self.fileEntry.delete(0, tk.END)
-        self.fileEntry.insert(0, event.data)
-        self.onLoadBtn()
+            obj.focus_set()
 
     def onSwitchSaveMode(self):
         """点击切换保存位置"""
@@ -146,32 +147,26 @@ class MainUI:
         if self.fileEntry.get():
             self.onLoadBtn()
 
-    def onLoadBtn(self, status: bool = True):
-        """status: 是否输出状态栏信息"""
+    def onLoadBtn(self):
         subtitleObj = SubStationAlpha.load(self.fileEntry.get())
         if subtitleObj:
+            is_reload = not self.fontList.isEmpty()
             self.fontList.loadSubtitle(subtitleObj)
-            self.loadBtn.configure(text=Lang['Load'] if subtitleObj is None else Lang['Reload'], state=tk.NORMAL)
-            if status and not FontManager.isIndexing:   # 索引字体时不输出状态栏，否则会冲掉“正在索引”的信息
-                ui.StatusBar.set(Lang['File loaded'] + '.', 3)
+            self.loadBtn.configure(text=Lang['Reload'], state=tk.NORMAL)
+            ui.StatusBar.set((Lang['File reloaded'] if is_reload else Lang['File loaded']) + '.',
+                             duration=3, override=False)
         else:
-            self.root.focus_set()   # load中可能有弹窗，需手动取回焦点
+            self.loadBtn.focus_force()   # load中可能有弹窗，需手动取回焦点
 
-    def onApplyBtn(self, status: bool = True):
-        """
-        点击应用按钮。
-        status: 是否输出状态栏信息
-        """
+    def onApplyBtn(self):
+        """点击应用按钮"""
         res = self.fontList.applyEmbedding(self.dirEntry.get())
         if res != 0:
-            self.root.focus_set()  # applyEmbeding中可能会有弹窗，需手动取回焦点
+            self.applyBtn.focus_force()  # applyEmbeding中可能会有弹窗，需手动取回焦点
         if res != 1:    # 如果有字体嵌入成功
-            if status:
-                ui.StatusBar.set(Lang['Finished'] + '. ', 3)
+            ui.StatusBar.set(Lang['Finished'] + '. ', duration=3, override=False)
             if self.dirEntry.isblank:    # 如果覆盖原文件，则重新载入
                 self.onLoadBtn()
-                if status:
-                    ui.StatusBar.append(Lang['File reloaded'] + '.', 3)
 
     def showSettings(self, event):
         """点击设置按钮"""

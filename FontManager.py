@@ -44,7 +44,6 @@ class FontManager:
         """
         if stopEvent and stopEvent.is_set():
             return
-
         cls.isIndexing = True
 
         # 读取缓存文件
@@ -135,7 +134,6 @@ class FontManager:
                 save_failed = True
 
         cls.isIndexing = False
-
         if save_failed:
             StatusBar.append(Lang['saving cache file failed.'], 3)
         elif statusbar_indexing_flag:

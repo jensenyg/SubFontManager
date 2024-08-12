@@ -27,7 +27,7 @@ class FontList(ui.WidgetTable):
     def __init__(self, master):
         super().__init__(master=master)
         self.columnWidth = []
-        self.itemList = []  # [{fontName, isEmbed, isSubset, source, ...}]
+        self.rowItemList = []  # [{fontName, isEmbed, isSubset, source, ...}]
         self.fontMgr = FontManager()
         self.subtitleObj = None
 
@@ -39,12 +39,15 @@ class FontList(ui.WidgetTable):
         self.addColumn(Lang['Ss'], width=30, toolTip=Lang['Subset'])
         self.addColumn(Lang['File source'], weight=2, minWidth=80, adjuster='left')
 
+    def isEmpty(self) -> bool:
+        return len(self.rowItemList) == 0
+
     def loadSubtitle(self, subObj: SubStationAlpha = None):
         """载入字体文件并将其中的字体和信息添加到列表"""
         # 清空列表 -------
         self.subtitleObj = subObj
-        if self.itemList:
-            self.itemList.clear()
+        if self.rowItemList:
+            self.rowItemList.clear()
             self.clearRows()
         if subObj is None:
             return
@@ -81,7 +84,7 @@ class FontList(ui.WidgetTable):
                 'sourceWidget': None,       # 文件源组合框控件，在添加行时填写
                 'modified': False           # 字体内嵌状态是否被修改
             }
-            self.itemList.append(row_item)
+            self.rowItemList.append(row_item)
 
             if row_item['embedName']:  # 如果是内嵌字体
                 row_item['embed'].set(True)
@@ -132,13 +135,13 @@ class FontList(ui.WidgetTable):
         """
         应用字体内嵌
         :param savePath: 保存路径，缺省则写入到源文件
-        :return: 0: 成功，1: 列表参数错误，未执行内嵌，2: 仅部分文件内嵌成功（暂未实现）
+        :return: 0: 成功，1: 列表参数错误或文件写入错误，未执行内嵌，2: 仅部分文件内嵌成功（暂未实现）
         """
         warnings = []
         have_task = False
 
         # 检查是否有可做的任务、文件是否存在，以及文件内是否都包含指定的字体 -------------
-        for row_item in self.itemList:
+        for row_item in self.rowItemList:
             # 检查是否有可做的任务 -------------
             if row_item['embed'].get():
                 if row_item['embedName'] and not row_item['subset'].get():   # 原内嵌字体再次子集化
@@ -183,7 +186,7 @@ class FontList(ui.WidgetTable):
             return 1
 
         # 检查大字体的子集化是否勾选 -------------
-        for row_item in self.itemList:
+        for row_item in self.rowItemList:
             if not row_item['embedName'] and not row_item['subset'].get()\
                     and os.path.getsize(row_item['sourceWidget'].get()) > 1024000:    # 不子集化且文件>100K
                 warnings.append(Lang["File source of {f} {s} is big and subset is not selected,"]
@@ -195,7 +198,8 @@ class FontList(ui.WidgetTable):
                 return 1
 
         # 执行内嵌 -------------
-        for row_item in self.itemList:
+        fontList_bak = self.subtitleObj.fontList.copy()    # 万一文件写入错误时用来做恢复的备份
+        for row_item in self.rowItemList:
             if row_item['embed'].get():
                 src = row_item['sourceWidget'].get()
                 # 读取文件 -------------
@@ -269,7 +273,11 @@ class FontList(ui.WidgetTable):
                 else:
                     font_codes.pop(row_item['index'])
 
-        self.subtitleObj.save(savePath)    # 保存字幕文件
+        if self.subtitleObj.save(savePath):    # 保存字幕文件
+            return 0
+        else:
+            self.subtitleObj.fontList = fontList_bak
+            return 1
 
     @classmethod
     def setRowStatus(cls, rowItem: dict):

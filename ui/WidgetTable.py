@@ -186,6 +186,7 @@ class WidgetTable(tk.Frame):
                 cell.widget.place_forget()
         for widget in self.scrollableFrame.winfo_children():
             widget.destroy()
+        self.selectedRow = None
         self.rows = []
         self.cells = []
 

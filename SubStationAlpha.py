@@ -1,34 +1,50 @@
 import os
 import io
 import re
-from enum import Enum
+from charset_normalizer import from_path
 from tkinter import messagebox
 from Lang import Lang
 from FontManager import FontManager
 from UUEncoding import UUEncode, UUDecode
 
 
-class Section(Enum):
-    """
-    Section枚举类
-    """
-    INFO = 'info'
-    STYLE = 'style'
-    FONT = 'font'
-    DIALOGUE = 'dialogue'
-    OTHER = 'other'    # 如"[Aegisub Project Garbage]"
+class SectionList:
+    """Section内的行列表，管理Section内的所有行，提供append和toString方法"""
+
+    def __init__(self, section: str, continuous: bool = False):
+        self.sectionName = section
+        self.lineList = []
+        self.continuous = continuous
+
+    def append(self, lineStr: str) -> bool:
+        """
+        添加条目
+        :param lineStr: 行文本，可能为空
+        :return: False代表下一行可以是别的Section，True代表下一行也必须是本Section
+        """
+        if lineStr:
+            self.lineList.append(lineStr)
+            return self.continuous
+        else:
+            return False
+
+    def toString(self):
+        if self.lineList:
+            return '\n'.join([self.sectionName] + self.lineList)
+        else:
+            return ''
 
 
-class StyleList:
-    """
-    用于维护所有Style的类，包括Style格式和多条Style内容
-    """
+class StyleList(SectionList):
+    """用于维护所有Style的类，包括Style格式和所有Style内容"""
+
     # ASS默认的格式
     DEFAULT_FORMAT = 'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, ' \
                      'BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, ' \
                      'BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding'
 
     def __init__(self, fmtStr: str = None):
+        super().__init__('[V4+ Styles]')
         self._styleDict = {}    # {styleName, [fields]}
         self.format = None
         self.format_lower = None
@@ -44,9 +60,15 @@ class StyleList:
             raise ValueError("Subtitle format error!")
         self.__nameIndex = self.format_lower.index('name')
 
-    def append(self, styleStr: str):
-        fields = [s.strip() for s in styleStr[6:].split(',')]    # 跨过开头的"Style:"
-        self._styleDict[fields[self.__nameIndex].lower()] = fields
+    def append(self, lineStr: str) -> bool:
+        if lineStr:
+            line_str_lower = lineStr[:7].lower()
+            if line_str_lower.startswith('format:'):
+                self.setFormat(lineStr)
+            elif line_str_lower.startswith('style:'):
+                fields = [s.strip() for s in lineStr[6:].split(',')]    # 跨过开头的"Style:"
+                self._styleDict[fields[self.__nameIndex].lower()] = fields
+        return False
 
     def getStyleFields(self, styleName: str, fieldNames: tuple):
         styleName = styleName.lower()
@@ -57,24 +79,68 @@ class StyleList:
         else:
             return None
 
-    def getStyleString(self, item) -> str:
-        return 'Style: ' + ','.join(self._styleDict[item])
-
-    def getFormatString(self) -> str:
-        return 'Format: ' + ', '.join(self.format)
+    def toString(self):
+        if not self._styleDict:
+            return ''
+        str_list = [self.sectionName, 'Format: ' + ', '.join(self.format)]
+        str_list.extend(['Style: ' + ','.join(self._styleDict[style]) for style in self._styleDict])
+        return '\n'.join(str_list)
 
     def __iter__(self):
         return iter(self._styleDict)
 
 
-class DialogueList:
-    """
-    用于维护所有Dialogue行的类，包括Dialogue格式和多条Dialogue内容
-    """
+class FontList(dict, SectionList):
+    def __init__(self):
+        super().__init__()
+        SectionList.__init__(self, '[Fonts]', continuous=True)
+        self.currentFontname = None
+
+    def append(self, lineStr: str) -> bool:
+        if lineStr:
+            line_str_lower = lineStr[:9].lower()
+            if line_str_lower.startswith('fontname:'):
+                self.currentFontname = lineStr[9:].strip()
+                if self.currentFontname in self:
+                    self[self.currentFontname].append('')
+                else:
+                    self[self.currentFontname] = ['']
+            elif self.currentFontname:
+                self[self.currentFontname][-1] += lineStr  # 合并多行内嵌字体
+            return True    # 出现空行才代表可以进入下一个Section
+        else:
+            return False
+
+    def toString(self) -> str:
+        if not self:
+            return ''
+        str_list = [self.sectionName]
+        for font_name, font_codes in self.items():
+            for font_code in font_codes:
+                str_list.append(f"fontname: {font_name}")
+                i = 0
+                while i < len(font_code):
+                    str_list.append(font_code[i:i + 80])
+                    i += 80
+                str_list.append('')
+        str_list.pop()    # 去掉最后一个多余的空行
+        return '\n'.join(str_list)
+
+    def copy(self):
+        new_self = self.__class__()
+        for key in self:
+            new_self[key] = self[key].copy()
+        return new_self
+
+
+class DialogueList(SectionList):
+    """用于维护所有Dialogue行的类，包括Dialogue格式和所有Dialogue内容"""
+
     # ASS默认的格式
     DEFAULT_FORMAT = 'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text'
 
     def __init__(self, fmtStr: str = None):
+        super().__init__('[Events]')
         self._dialogueList = []    # [[fields]]
         self.format = None
         self.format_lower = None
@@ -88,156 +154,133 @@ class DialogueList:
         if 'name' not in self.format_lower or 'text' not in self.format_lower:
             raise ValueError(Lang['Subtitle format error!'])
 
-    def append(self, dialogueStr: str):
-        fields = []
-        i, j = 9, 9   # 起始为9，跨过开头的"Dialogue:"
-        while i < len(dialogueStr):    # 将行按逗号分割，但分割数量按Format而定，最后一个Text内可以包含逗号
-            if dialogueStr[i] == ',':
-                fields.append(dialogueStr[j:i].strip())
-                j = i + 1
-                if len(fields) == len(self.format) - 1:    # 已经装满Text以前的所有字段，则后面的内容全是Text
-                    fields.append(dialogueStr[j:].strip())
-                    break
-            i += 1
-        else:    # 如果走到这里，说明格式不对，没有装满字段，则将后面剩余的文字都装在后一个字段中
-            if j < len(dialogueStr):
-                fields.append(dialogueStr[j:].strip())
-        self._dialogueList.append(fields)
+    def append(self, lineStr: str) -> bool:
+        if lineStr:
+            line_str_lower = lineStr[:9].lower()
+            if line_str_lower.startswith('format:'):
+                self.setFormat(lineStr)
+            elif line_str_lower.startswith('dialogue:'):
+                fields = []
+                i = j = 9   # 起始为9，跨过开头的"Dialogue:"
+                while i < len(lineStr):    # 将行按逗号分割，但分割数量按Format而定，最后一个Text内可以包含逗号
+                    if lineStr[i] == ',':
+                        fields.append(lineStr[j:i].strip())
+                        j = i + 1
+                        if len(fields) == len(self.format) - 1:    # 已经装满Text以前的所有字段，则后面的内容全是Text
+                            fields.append(lineStr[j:].strip())
+                            break
+                    i += 1
+                else:    # 如果走到这里，说明格式不对，没有装满字段，则将后面剩余的文字都装在后一个字段中
+                    if j < len(lineStr):
+                        fields.append(lineStr[j:].strip())
+                self._dialogueList.append(fields)
+        return False
 
     def getDialogueField(self, index: int, fieldName: str):
         field_index = self.format_lower.index(fieldName.lower())
         return self._dialogueList[index][field_index]
 
-    def getDialogueString(self, index) -> str:
-        return 'Dialogue: ' + ','.join(self._dialogueList[index])
-
-    def getFormatString(self):
-        return 'Format: ' + ', '.join(self.format)
+    def toString(self):
+        if not self._dialogueList:
+            return ''
+        str_list = [self.sectionName, 'Format: ' + ', '.join(self.format)]
+        str_list.extend(['Dialogue: ' + ','.join(dlg) for dlg in self._dialogueList])
+        return '\n'.join(str_list)
 
     def __len__(self):
         return len(self._dialogueList)
 
 
-# ASS字幕类，维护字幕的所有Style、Font、Dialogue内容和读写操作
 class SubStationAlpha:
-    def __init__(self, path: str):
+    """ASS字幕类，维护字幕的所有Style、Font、Dialogue内容和读写操作"""
+
+    def __init__(self, path: str, encoding: str = None):
         self.filePath = path
-        # self.lines = None
-        self.infoList = []
+        self.infoList = SectionList('[Script Info]')
         self.styleList = StyleList()
-        self.fontList = {}  # {fontname: [fontcode]}]，fontname可能有重复，重复的放在一个list内
+        self.fontList = FontList()    # {fontname: [fontcode]}]，fontname可能有重复，重复的放在一个list内
+        self.graphicList = SectionList('[Graphics]', continuous=True)   # 这里只存字串行，不做任何处理
         self.dialogueList = DialogueList()
-        self.otherList = []
-        self._load()
+        self.sectionsDict = {
+            self.infoList.sectionName.lower(): self.infoList,
+            self.styleList.sectionName.lower(): self.styleList,
+            self.fontList.sectionName.lower(): self.fontList,
+            self.graphicList.sectionName.lower(): self.graphicList,
+            self.dialogueList.sectionName.lower(): self.dialogueList
+        }
+        self.sectionsInOrder = []     # 保存各个SectionList并记录它们的顺序，以便重建文件时不会搞混
+        self._load(path, encoding)
         self.embedFontMgr = FontManager(assSub=self)    # 为内嵌字体创建Name索引
 
     @classmethod
-    def load(cls, path: str):
+    def load(cls, path: str, encoding: str = None):
         if not os.path.isfile(path):
             messagebox.showerror(Lang['Error'], Lang["File {p} doesn't exist."].format(p=path))
             return
         elif not os.access(path, os.R_OK):
             messagebox.showerror(Lang['Error'], Lang['Unable to read file {p}.'].format(p=path))
             return
-        return cls(path)
+        return cls(path, encoding)
 
-    def _load(self):
-        with open(self.filePath, 'r', encoding='utf-8') as file:
-            section = None
+    def _load(self, path: str, encoding: str = None):
+        if not encoding:    # 如果没有指定编码，则自动判断
+            encoding = from_path(path).best().encoding
+        with open(path, 'r', encoding=encoding) as file:
             section_pattern = re.compile(r'^\[.*\]')
-            font_name = None    # 用于在循环中将Font多行编码连接起来
+            section_list = None
+            continuous_section = False
+
             while True:
                 line_str = file.readline()
                 if not line_str:
                     break
-                elif line_str in ['\n', '\r\n']:  # 不要空行
-                    continue
 
                 # 去掉开头的不可打印字符
                 for i, c in enumerate(line_str):
                     if c.isprintable():
                         line_str = line_str[i:]
                         break
-                line_str = line_str.rstrip('\r\n')
+                line_str = line_str.rstrip('\r\n')   # 去掉回车
 
                 # 检查是否是Section行
-                matchObj = section_pattern.match(line_str)
-                if matchObj:  # 中括号行出现，切换行类型
-                    section_str = matchObj.group(0).lower()
-                    if section_str.startswith('[script info]'):
-                        section = Section.INFO
-                    elif section_str.startswith('[v4 styles]') or section_str.startswith('[v4+ styles]'):
-                        section = Section.STYLE
-                    elif section_str.startswith('[fonts]'):
-                        section = Section.FONT
-                    elif section_str.startswith('[events]'):
-                        section = Section.DIALOGUE
-                    else:
-                        section = Section.OTHER
-                elif section == Section.INFO:   # Info Section
-                    self.infoList.append(line_str)
-                else:
-                    line_str_lower = line_str[:9].lower()
-                    if section == Section.STYLE:    # Style Section
-                        if line_str_lower.startswith('format:'):
-                            self.styleList.setFormat(line_str)
-                        elif line_str_lower.startswith('style:'):
-                            self.styleList.append(line_str)
-                    elif section == Section.FONT:    # Font Section
-                        if line_str_lower.startswith('fontname:'):
-                            font_name = line_str[9:].strip()
-                            if font_name in self.fontList:
-                                self.fontList[font_name].append('')
-                            else:
-                                self.fontList[font_name] = ['']
-                        else:
-                            self.fontList[font_name][-1] += line_str    # 合并多行内嵌字体
-                    elif section == Section.DIALOGUE:   # Dialogue Section
-                        if line_str_lower.startswith('format:'):
-                            self.dialogueList.setFormat(line_str)
-                        elif line_str_lower.startswith('dialogue:'):
-                            self.dialogueList.append(line_str)
+                if not continuous_section:
+                    matchObj = section_pattern.match(line_str)   # 检查是否以[*]开头
+                    if matchObj:    # 中括号行出现，切换行类型
+                        section_name = matchObj.group(0).lower()
+                        # 对于非标准的Section，如"[Aegisub Project Garbage]"，临时新建一个SectionList保存
+                        section_list = self.sectionsDict.get(section_name, SectionList(section_name.title()))
+                        if section_list not in self.sectionsInOrder:   # 如果标准Section有重复的，以第一个的位置为准
+                            self.sectionsInOrder.append(section_list)  # 保存入顺序表
+                        continue
+                # 向Section List插入新行
+                continuous_section = section_list.append(line_str)
 
-    def save(self, path: str = None):
+    def save(self, path: str = None, encoding: str = None) -> bool:
         """
         保存文件到路径
         :param path: 保存路径，缺省则写入到源文件
-        :return:
+        :param encoding: 写入编码
+        :return: True为成功，False失败
         """
         if not path:
             path = self.filePath
-        if not os.access(os.path.dirname(path), os.W_OK):
+        path_exists = os.path.exists(path)
+        path_dir = os.path.dirname(path)
+        if not path_dir:
+            path_dir = '.'
+        if (path_exists and not os.access(path, os.W_OK)) or \
+                (not path_exists and not os.access(path_dir, os.W_OK)):
             messagebox.showerror(Lang['Error'], Lang['Unable to write file {p}.'].format(p=path))
-            return
+            return False
+        if not encoding:
+            encoding = 'utf-8'    # 默认使用UTF-8编码
 
-        with open(path, 'w', encoding='utf-8') as file:
-            # 写入Info
-            file.write('[Script Info]\n')
-            file.write('\n'.join(self.infoList) + '\n')
-
-            # 写入Style
-            file.write('\n[V4+ Styles]\n')
-            file.write(self.styleList.getFormatString() + '\n')
-            for style in self.styleList:
-                file.write(self.styleList.getStyleString(style) + '\n')
-
-            # 写入Font
-            file.write('\n[Fonts]')
-            for font_name, font_codes in self.fontList.items():
-                for font_code in font_codes:
-                    file.write(f"\nfontname: {font_name}\n")
-                    i = 0
-                    while i < len(font_code):
-                        file.write(font_code[i:i + 80] + '\n')
-                        i += 80
-
-            # 写入Dialogue
-            file.write('\n[Events]\n')
-            file.write(self.dialogueList.getFormatString() + '\n')
-            i = 0
-            while i < len(self.dialogueList):
-                file.write(self.dialogueList.getDialogueString(i) + '\n')
-                i += 1
+        # 写入文件
+        with open(path, 'w', encoding=encoding) as file:
+            for section_list in self.sectionsInOrder:
+                file.write(section_list.toString())
+                file.write('\n\n')
+        return True
 
     @staticmethod
     def __addTextToDict(d: dict, key1, key2, text: str):

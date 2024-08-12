@@ -52,7 +52,8 @@ class Checkbox(ttk.Checkbutton, tk.Checkbutton, Widget):
         style.configure('TCheckbutton', background=Checkbox.bg)  # 设置复选框背景色
 
     def __init__(self, master: tk.Misc, **kwargs):
-        if App.platform == App.MACOS:
+        self.isMac = App.platform == App.MACOS
+        if self.isMac:
             kwargs['bg'] = kwargs.get('bg', self.bg)
             tk.Checkbutton.__init__(self, master, **kwargs)
         else:
@@ -61,7 +62,7 @@ class Checkbox(ttk.Checkbutton, tk.Checkbutton, Widget):
             ttk.Checkbutton.__init__(self, master, **kwargs)
 
     def setBackground(self, color: str = Widget.bg):
-        if App.platform == App.MACOS:
+        if self.isMac:
             tk.Checkbutton.configure(self, background=color)
         else:
             style_name = 'TCheckbutton' if color == self.bg else (color + '.TCheckbutton')

@@ -3,6 +3,7 @@ import os
 import sys
 import site
 
+is_macos = sys.platform=='darwin'
 icon_names = {'darwin': 'icon.icns', 'win32': 'icon.ico', 'linux': 'icon.png', 'linux2': 'icon.png'}
 tkdnd_path = None
 for path in site.getsitepackages():
@@ -19,7 +20,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (tkdnd_path, 'tkinterdnd2'),
-        ('icon/icon@128.png' if sys.platform=='darwin' else 'icon/icon@256.png', 'icon'),
+        ('icon/icon@128.png' if is_macos else 'icon/icon@256.png', 'icon'),
         ('lang', 'lang')
     ],
     hiddenimports=[],
