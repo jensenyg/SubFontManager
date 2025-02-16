@@ -8,7 +8,7 @@ from FontManager import FontManager
 from UUEncoding import UUEncode, UUDecode
 
 
-class SectionList:
+class SectionLines:
     """Section内的行列表，管理Section内的所有行，提供append和toString方法"""
 
     def __init__(self, section: str, continuous: bool = False):
@@ -35,7 +35,7 @@ class SectionList:
             return ''
 
 
-class StyleList(SectionList):
+class StyleList(SectionLines):
     """用于维护所有Style的类，包括Style格式和所有Style内容"""
 
     # ASS默认的格式
@@ -90,10 +90,12 @@ class StyleList(SectionList):
         return iter(self._styleDict)
 
 
-class FontList(dict, SectionList):
+class FontList(dict, SectionLines):
+    """用于维护所有内嵌字体的类，包括字体名和二进制字体内容"""
+
     def __init__(self):
         super().__init__()
-        SectionList.__init__(self, '[Fonts]', continuous=True)
+        SectionLines.__init__(self, '[Fonts]', continuous=True)
         self.currentFontname = None
 
     def append(self, lineStr: str) -> bool:
@@ -133,7 +135,7 @@ class FontList(dict, SectionList):
         return new_self
 
 
-class DialogueList(SectionList):
+class DialogueList(SectionLines):
     """用于维护所有Dialogue行的类，包括Dialogue格式和所有Dialogue内容"""
 
     # ASS默认的格式
@@ -196,10 +198,10 @@ class SubStationAlpha:
 
     def __init__(self, path: str, encoding: str = None):
         self.filePath = path
-        self.infoList = SectionList('[Script Info]')
+        self.infoList = SectionLines('[Script Info]')
         self.styleList = StyleList()
         self.fontList = FontList()    # {fontname: [fontcode]}]，fontname可能有重复，重复的放在一个list内
-        self.graphicList = SectionList('[Graphics]', continuous=True)   # 这里只存字串行，不做任何处理
+        self.graphicList = SectionLines('[Graphics]', continuous=True)   # 这里只存字串行，不做任何处理
         self.dialogueList = DialogueList()
         self.sectionsDict = {
             self.infoList.sectionName.lower(): self.infoList,
@@ -208,7 +210,7 @@ class SubStationAlpha:
             self.graphicList.sectionName.lower(): self.graphicList,
             self.dialogueList.sectionName.lower(): self.dialogueList
         }
-        self.sectionsInOrder = []     # 保存各个SectionList并记录它们的顺序，以便重建文件时不会搞混
+        self.sectionsInOrder = []     # 保存各个SectonLines并记录它们的顺序，以便重建文件时不会搞混
         self._load(path, encoding)
         self.embedFontMgr = FontManager(assSub=self)    # 为内嵌字体创建Name索引
 
@@ -227,7 +229,7 @@ class SubStationAlpha:
             encoding = from_path(path).best().encoding
         with open(path, 'r', encoding=encoding) as file:
             section_pattern = re.compile(r'^\[.*\]')
-            section_list = None
+            section_lines = None
             continuous_section = False
 
             while True:
@@ -247,13 +249,13 @@ class SubStationAlpha:
                     matchObj = section_pattern.match(line_str)   # 检查是否以[*]开头
                     if matchObj:    # 中括号行出现，切换行类型
                         section_name = matchObj.group(0).lower()
-                        # 对于非标准的Section，如"[Aegisub Project Garbage]"，临时新建一个SectionList保存
-                        section_list = self.sectionsDict.get(section_name, SectionList(section_name.title()))
-                        if section_list not in self.sectionsInOrder:   # 如果标准Section有重复的，以第一个的位置为准
-                            self.sectionsInOrder.append(section_list)  # 保存入顺序表
+                        # 对于非标准的Section，如"[Aegisub Project Garbage]"，临时新建一个SectonLines保存
+                        section_lines = self.sectionsDict.get(section_name, SectionLines(section_name.title()))
+                        if section_lines not in self.sectionsInOrder:   # 如果标准Section有重复的，以第一个的位置为准
+                            self.sectionsInOrder.append(section_lines)  # 保存入顺序表
                         continue
                 # 向Section List插入新行
-                continuous_section = section_list.append(line_str)
+                continuous_section = section_lines.append(line_str)
 
     def save(self, path: str = None, encoding: str = None) -> bool:
         """
@@ -275,10 +277,17 @@ class SubStationAlpha:
         if not encoding:
             encoding = 'utf-8'    # 默认使用UTF-8编码
 
+        # 检查Fonts段是否被删除或新增
+        if self.fontList in self.sectionsInOrder:
+            if not len(self.fontList):
+                self.sectionsInOrder.remove(self.fontList)
+        elif len(self.fontList):
+            self.sectionsInOrder.insert(self.sectionsInOrder.index(self.styleList) + 1, self.fontList)
+
         # 写入文件
         with open(path, 'w', encoding=encoding) as file:
-            for section_list in self.sectionsInOrder:
-                file.write(section_list.toString())
+            for section_lines in self.sectionsInOrder:
+                file.write(section_lines.toString())
                 file.write('\n\n')
         return True
 

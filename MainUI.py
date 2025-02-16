@@ -161,12 +161,12 @@ class MainUI:
     def onApplyBtn(self):
         """点击应用按钮"""
         res = self.fontList.applyEmbedding(self.dirEntry.get())
-        if res != 0:
-            self.applyBtn.focus_force()  # applyEmbeding中可能会有弹窗，需手动取回焦点
-        if res != 1:    # 如果有字体嵌入成功
+        if res == 0:    # 如果字体嵌入成功
             ui.StatusBar.set(Lang['Finished'] + '. ', duration=3, override=False)
             if self.dirEntry.isblank:    # 如果覆盖原文件，则重新载入
                 self.onLoadBtn()
+        else:
+            self.applyBtn.focus_force()  # applyEmbeding中可能会有弹窗，需手动取回焦点
 
     def showSettings(self, event):
         """点击设置按钮"""

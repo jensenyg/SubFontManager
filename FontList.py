@@ -135,7 +135,9 @@ class FontList(ui.WidgetTable):
         """
         应用字体内嵌
         :param savePath: 保存路径，缺省则写入到源文件
-        :return: 0: 成功，1: 列表参数错误或文件写入错误，未执行内嵌，2: 仅部分文件内嵌成功（暂未实现）
+        :return: 0: 成功；1: 列表参数错误，未修改文件；
+                 2：内嵌或删除内嵌操作错误，未修改文件；
+                 3：文件写入错误，未修改文件。
         """
         warnings = []
         have_task = False
@@ -155,7 +157,7 @@ class FontList(ui.WidgetTable):
 
             # 文件是否存在以及文件内是否都包含指定的字体 -------------
             src = row_item['sourceWidget'].get()
-            index = None
+            index = None    # 目标字体在文件内的编号
             if src.startswith(self.EMBED_NAME_PREFIX):
                 filename = src[len(self.EMBED_NAME_PREFIX):]
                 if filename in self.subtitleObj.fontList:
@@ -176,7 +178,7 @@ class FontList(ui.WidgetTable):
                 warnings.append(Lang["File {p} doesn't contain font '{f} {s}'."]
                                 .format(p=src, f=row_item['fontName'], s=row_item['style']))
             elif index is not None:
-                row_item['index'] = index
+                row_item['index'] = index   # 保存字体编号到row_item
 
         if not have_task:
             messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
@@ -199,85 +201,91 @@ class FontList(ui.WidgetTable):
 
         # 执行内嵌 -------------
         fontList_bak = self.subtitleObj.fontList.copy()    # 万一文件写入错误时用来做恢复的备份
-        for row_item in self.rowItemList:
-            if row_item['embed'].get():
-                src = row_item['sourceWidget'].get()
-                # 读取文件 -------------
-                if src.startswith(self.EMBED_NAME_PREFIX):  # 内嵌字体源
-                    if not row_item['subset'].get():  # 已经内嵌且不需要子集化的字体，直接跳过
-                        continue
-                    # 内嵌文件名直接用指定的，可能会重复，重复就覆盖，也就是重新嵌入了
-                    embed_name = src[len(self.EMBED_NAME_PREFIX):]
-                    ttf_bytes = self.subtitleObj.getEmbedFont(embed_name, row_item['index'])
-                    ttf_font = TTFont(ttf_bytes)
-                else:
-                    # 拆解出文件名和后缀名
-                    _, file_name = os.path.split(src)
-                    file_name, ext = os.path.splitext(file_name)
-                    # 生成一个不重复的内嵌文件名
-                    embed_name = file_name + '_subset'
-                    i = 2
-                    while embed_name + '.ttf' in self.subtitleObj.fontList:
-                        embed_name += f'_{i}'
-                        i += 1
-                    embed_name += '.ttf'
-                    # 打开文件
-                    if ext.lower() == '.ttc':  # TTC文件
-                        font_collection = TTCollection(src)
-                        ttf_font = [font_collection[row_item['index']]]
-                        # for i, font in enumerate(font_collection):
-                        #     if i != row_item['index']:
-                        #         font.close()
-                    else:  # TTF文件
-                        ttf_font = TTFont(src)
-
-                # 子集化 -------------
-                if row_item['subset'].get():
-                    # 找出与引用名称匹配的字体名称，子集化可能会把它删掉，导致无法匹配
-                    name_record = None    # 字体名称记录
-                    name_list = ttf_font['name'].names
-                    for record in name_list:
-                        if record.nameID == 1 and \
-                                FontManager.decodeNameRecord(record).lower() == row_item['fontName'].lower():
-                            name_record = record
-                            break
+        try:
+            for row_item in self.rowItemList:
+                if row_item['embed'].get():
+                    src = row_item['sourceWidget'].get()
+                    resource_obj = None  # 打开的字体文件对象，为TTFont或TTCollection，这里是为了提供一个供统一关闭的对象
+                    # 读取文件 -------------
+                    if src.startswith(self.EMBED_NAME_PREFIX):  # 内嵌字体源
+                        if not row_item['subset'].get():  # 已经内嵌且不需要子集化的字体，直接跳过
+                            continue
+                        # 内嵌文件名直接用指定的，可能会重复，重复就覆盖，也就是重新嵌入了
+                        embed_name = src[len(self.EMBED_NAME_PREFIX):]
+                        ttf_bytes = self.subtitleObj.getEmbedFont(embed_name, row_item['index'])
+                        ttf_font = TTFont(ttf_bytes)
+                        resource_obj = ttf_font
                     else:
+                        # 拆解出文件名和后缀名
+                        _, file_name = os.path.split(src)
+                        file_name, ext = os.path.splitext(file_name)
+                        # 生成一个不重复的内嵌文件名
+                        embed_name = file_name + '_subset'
+                        i = 2
+                        while embed_name + '.ttf' in self.subtitleObj.fontList:
+                            embed_name += f'_{i}'
+                            i += 1
+                        embed_name += '.ttf'
+                        # 打开文件
+                        if ext.lower() == '.ttc':  # TTC文件
+                            font_collection = TTCollection(src)
+                            ttf_font = font_collection[row_item['index']]
+                            resource_obj = font_collection
+                        else:  # TTF文件
+                            ttf_font = TTFont(src)
+                            resource_obj = ttf_font
+
+                    # 子集化 -------------
+                    if row_item['subset'].get():
+                        # 找出与引用名称匹配的字体名称，子集化可能会把它删掉，导致无法匹配
+                        name_record = None    # 字体名称记录
+                        name_list = ttf_font['name'].names
                         for record in name_list:
-                            if record.nameID == 4 and \
+                            if record.nameID == 1 and \
                                     FontManager.decodeNameRecord(record).lower() == row_item['fontName'].lower():
                                 name_record = record
                                 break
+                        else:
+                            for record in name_list:
+                                if record.nameID == 4 and \
+                                        FontManager.decodeNameRecord(record).lower() == row_item['fontName'].lower():
+                                    name_record = record
+                                    break
 
-                    FontManager.fontSubset(ttf_font, row_item['text'])    # 子集化
+                        FontManager.fontSubset(ttf_font, row_item['text'])    # 子集化
 
-                    # 检查名表，如果匹配的字体名称被删掉了，将它加回来
-                    for record in ttf_font['name'].names:
-                        if record.nameID == name_record.nameID and record.platformID == name_record.platformID \
-                                and record.langID == name_record.langID and record.string == name_record.string:
-                            break
+                        # 检查名表，如果匹配的字体名称被删掉了，将它加回来
+                        for record in ttf_font['name'].names:
+                            if record.nameID == name_record.nameID and record.platformID == name_record.platformID \
+                                    and record.langID == name_record.langID and record.string == name_record.string:
+                                break
+                        else:
+                            ttf_font['name'].names.append(name_record)
+
+                    # 保存字体文件到内存并内嵌到字幕文件 -------------
+                    ttf_bytes_subset = io.BytesIO()
+                    ttf_font.save(ttf_bytes_subset)  # 保存到内存
+                    ttf_bytes_subset.seek(0)
+                    self.subtitleObj.embedFont(embed_name, ttf_bytes_subset, overwrite=True, index=row_item['index'])
+                    resource_obj.close()  # 关闭字体资源
+                    ttf_bytes_subset.close()
+
+                elif row_item['embedName']:    # 原内嵌字体未勾选内嵌，意味着要删除内嵌
+                    font_codes = self.subtitleObj.fontList[row_item['embedName']]
+                    if len(font_codes) == 1:
+                        self.subtitleObj.fontList.pop(row_item['embedName'])
                     else:
-                        ttf_font['name'].names.append(name_record)
+                        font_codes.pop(row_item['index'])
 
-                # 保存字体文件到内存并内嵌到字幕文件 -------------
-                ttf_bytes_subset = io.BytesIO()
-                ttf_font.save(ttf_bytes_subset)  # 保存到内存
-                ttf_bytes_subset.seek(0)
-                self.subtitleObj.embedFont(embed_name, ttf_bytes_subset, overwrite=True, index=row_item['index'])
-                ttf_font.close()  # 关闭字体资源
-                ttf_bytes_subset.close()
-
-            elif row_item['embedName']:    # 原内嵌字体未勾选内嵌，意味着要删除内嵌
-                font_codes = self.subtitleObj.fontList[row_item['embedName']]
-                if len(font_codes) == 1:
-                    self.subtitleObj.fontList.pop(row_item['embedName'])
-                else:
-                    font_codes.pop(row_item['index'])
+        except:  # 内嵌或删除内嵌操作出错
+            self.subtitleObj.fontList = fontList_bak
+            return 2
 
         if self.subtitleObj.save(savePath):    # 保存字幕文件
             return 0
-        else:
+        else:   # 保存文件出错
             self.subtitleObj.fontList = fontList_bak
-            return 1
+            return 3
 
     @classmethod
     def setRowStatus(cls, rowItem: dict):
@@ -302,9 +310,9 @@ class FontList(ui.WidgetTable):
             return
         checked = not rowItem['embed'].get()
         char_count = len(rowItem['text'])
-        if not rowItem['embed'].get() and (char_count > 99 or char_count == 0):
+        if not rowItem['embed'].get() and (char_count > 199 or char_count == 0):
             self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
-            checked = ((char_count > 99 and
+            checked = ((char_count > 199 and
                         messagebox.askokcancel(Lang['Reminding'], Lang["Font '{f} {s}' covers {c} charactors，embedding "
                             "it may significantly increase the size of the subtitle file, are you sure about this?"]
                             .format(f=rowItem['fontName'], s=self.STYLE_TEXTS.get(rowItem['style']), c=char_count)))
