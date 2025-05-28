@@ -1,5 +1,5 @@
 import tkinter as tk
-from App import App
+from utils import App
 
 
 class FlatButton(tk.Frame):
@@ -8,8 +8,7 @@ class FlatButton(tk.Frame):
     def __init__(self, master, text: str, command=None, **kwargs):
         super().__init__(master, width=26*App.dpiScale, height=26*App.dpiScale)
         self.pack_propagate(False)    # 阻止Frame自动调整尺寸
-        self.isMac = App.platform == App.MACOS
-        if self.isMac:
+        if App.isMac:
             self.label = tk.Label(self, text=text, font=('Arial', 26), **kwargs)
             self.label.pack(pady=(0, 3))
         else:
@@ -20,9 +19,9 @@ class FlatButton(tk.Frame):
         self.command = command
 
     def onMouseDown(self, event):
-        self.label.pack_configure(padx=(2, 0), pady=(0, 1) if self.isMac else (7, 0))
+        self.label.pack_configure(padx=(2, 0), pady=(0, 1) if App.isMac else (7, 0))
 
     def onMouseUp(self, event):
-        self.label.pack_configure(padx=0, pady=(0, 3) if self.isMac else (6, 0))
+        self.label.pack_configure(padx=0, pady=(0, 3) if App.isMac else (6, 0))
         if self.command:
             self.command(event)

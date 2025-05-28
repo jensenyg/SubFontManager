@@ -1,1 +1,1 @@
-pyinstaller AssFontManager.spec --clean --noconfirm
+pyinstaller SubFontManager.spec --clean --noconfirm

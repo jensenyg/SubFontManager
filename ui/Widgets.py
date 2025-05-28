@@ -1,9 +1,10 @@
 import tkinter as tk
 from tkinter import ttk, font as tkfont
-from App import App
+from utils import App
 
 
-class Widget:
+class StyledWidget:
+    """统一样式基类，继承此类的控件可以调用同样的样式风格"""
     bg = 'white'    # 全局背景色
     style = None
     defaultFont = None
@@ -19,6 +20,7 @@ class Widget:
 
 
 class Button(ttk.Button):
+    """按钮类，为了让width和height参数可以自动适应多种类型"""
     def __init__(self, master: tk.Misc, **kwargs):
         if 'width' in kwargs:
             kwargs['width'] = int(kwargs['width'])
@@ -27,14 +29,14 @@ class Button(ttk.Button):
         super().__init__(master, **kwargs)
 
 
-class Label(tk.Label, Widget):
-    """标签类，以统一的借口更改背景色"""
+class Label(tk.Label, StyledWidget):
+    """标签类，以统一的接口更改背景色"""
 
     def __init__(self, master: tk.Misc, **kwargs):
         kwargs['bg'] = kwargs.get('bg', self.bg)
         super().__init__(master, **kwargs)
 
-    def setBackground(self, color: str = Widget.bg):
+    def setBackground(self, color: str = StyledWidget.bg):
         self.configure(background=color)
 
     def setBold(self, bold: bool = True):
@@ -43,17 +45,16 @@ class Label(tk.Label, Widget):
         tk.Label.configure(self, font=new_font)
 
 
-class Checkbox(ttk.Checkbutton, tk.Checkbutton, Widget):
-    """复选框类，以统一的借口更改背景色"""
+class Checkbox(ttk.Checkbutton, tk.Checkbutton, StyledWidget):
+    """复选框类，以统一的接口更改背景色"""
 
     @classmethod
     def initStyle(cls, style):
-        Widget.initStyle(style)
+        StyledWidget.initStyle(style)
         style.configure('TCheckbutton', background=Checkbox.bg)  # 设置复选框背景色
 
     def __init__(self, master: tk.Misc, **kwargs):
-        self.isMac = App.platform == App.MACOS
-        if self.isMac:
+        if App.isMac:
             kwargs['bg'] = kwargs.get('bg', self.bg)
             tk.Checkbutton.__init__(self, master, **kwargs)
         else:
@@ -61,8 +62,8 @@ class Checkbox(ttk.Checkbutton, tk.Checkbutton, Widget):
             kwargs.pop('anchor', None)
             ttk.Checkbutton.__init__(self, master, **kwargs)
 
-    def setBackground(self, color: str = Widget.bg):
-        if self.isMac:
+    def setBackground(self, color: str = StyledWidget.bg):
+        if App.isMac:
             tk.Checkbutton.configure(self, background=color)
         else:
             style_name = 'TCheckbutton' if color == self.bg else (color + '.TCheckbutton')
@@ -70,12 +71,12 @@ class Checkbox(ttk.Checkbutton, tk.Checkbutton, Widget):
             ttk.Checkbutton.configure(self, style=style_name)
 
 
-class Entry(ttk.Entry, Widget):
+class Entry(ttk.Entry, StyledWidget):
     """输入框类，支持占位符，当内容为空时会显示灰色的占位符文字"""
 
     @classmethod
     def initStyle(cls, style):
-        Widget.initStyle(style)
+        StyledWidget.initStyle(style)
         style.map('TEntry', fieldbackground=[('!disabled', 'white')])  # 设置输入框非禁用内背景色为白色
 
     def __init__(self, master: tk.Misc = None, placeholder: str = '', *args, **kwargs):
@@ -171,7 +172,7 @@ class Combobox(ttk.Combobox, Entry):
         # 返回break可以阻止事件进一步传播
         return 'break'
 
-    def setBackground(self, color: str = Widget.bg):
+    def setBackground(self, color: str = StyledWidget.bg):
         style_name = 'TCombobox' if color == self.bg else (color + '.TCombobox')
         self.style.configure(style_name, background=color)
         ttk.Combobox.configure(self, style=style_name)

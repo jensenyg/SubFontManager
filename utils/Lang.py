@@ -1,8 +1,9 @@
 import os
-from App import App
+from .App import App
 
 
 class LanguageDict:
+    """多语言字典"""
     ENGLISH = 'English'
 
     def __init__(self, langDir: str = None):

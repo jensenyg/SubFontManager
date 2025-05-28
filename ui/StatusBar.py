@@ -1,44 +1,39 @@
+from tkinter import ttk
 
 
-class StatusBar:
+class StatusBar(ttk.Label):
     """状态栏类"""
-    labelWidget = None
-    timer = None
 
-    @classmethod
-    def setLabel(cls, labelWidget):
-        """设定一个Label控件用于显示文字"""
-        cls.labelWidget = labelWidget
+    def __init__(self, master):
+        super().__init__(master)
+        self.timer = None
 
-    @classmethod
-    def set(cls, text: str = None, duration: int = -1, override: bool = True):
+    def set(self, text: str = None, duration: int = -1, override: bool = True):
         """
         设置状态栏文字
-        :param text: 文字
+        :param text: 文字，''表示清空，None为不变
         :param duration: 持续时间，超过该时间后状态栏将清空。>0：时间，=0：无动作，保持原来的计时，-1：持续时间设定为永远。
         :param override: 是否覆盖当前显示的文字
         """
-        if override or not cls.labelWidget.cget('text'):
-            cls.labelWidget.config(text=text)
-            if duration != 0 and cls.timer:
-                cls.labelWidget.after_cancel(cls.timer)
-                cls.timer = None
+        if override or not self.cget('text'):
+            self.config(text=text)
+            if duration != 0 and self.timer:
+                self.after_cancel(self.timer)
+                self.timer = None
             if duration > 0:
-                cls.timer = cls.labelWidget.after(duration * 1000, cls.clear)
+                self.timer = self.after(duration * 1000, self.clear)
 
-    @classmethod
-    def append(cls, text: str, duration: int = -1):
+    def append(self, text: str, duration: int = -1):
         """
         将文字追加到状态栏中
         :param text: 文字
         :param duration: 持续时间，超过该时间后状态栏将清空。>0：时间，=0：无动作，保持原来的计时，-1：持续时间设定为永远。
         """
-        cls.set(cls.labelWidget.cget('text') + text, duration)
+        self.set(self.cget('text') + text, duration)
 
-    @classmethod
-    def clear(cls):
+    def clear(self):
         """清空状态栏中的文字"""
-        cls.labelWidget.config(text='')
-        if cls.timer:
-            cls.labelWidget.after_cancel(cls.timer)
-            cls.timer = None
+        self.config(text='')
+        if self.timer:
+            self.after_cancel(self.timer)
+            self.timer = None

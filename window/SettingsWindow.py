@@ -4,8 +4,7 @@ import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
 import __version__
-from App import App
-from Lang import Lang
+from utils import App, Lang
 import ui
 
 
@@ -78,12 +77,7 @@ class SettingsWindow(ui.PopupWindow):
         new_lang = self.lang_var.get()
         if new_lang != Lang.currentLang:
             Lang.saveSetting(new_lang)
-        if new_lang != Lang.initLang and \
-            messagebox.askyesno(Lang['Reminding'],
-                                Lang['Language changing requires restart to take effect, restart now?'],
-                                parent=self):
-            self.destroy()
-            self.master.destroy()
-            python = sys.executable
-            os.execl(python, python, *sys.argv)
+        if new_lang != Lang.initLang:
+            messagebox.showinfo(Lang['Reminding'], Lang['Language changing takes effect after restart.'], parent=self)
+            # 这里不重启，因为tkinter软重启问题多多，os.execl会导致拖放事件失效，subprocess.Popen会导致弹出messagebox时直接崩溃
         self.destroy()
