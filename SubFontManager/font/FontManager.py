@@ -1,8 +1,12 @@
 import os
 from utils.App import App
-from .CoreText import CoreText
 from .Font import Font
 from .SectionLines import FontDict
+
+if App.isWindows:
+    from .FontMatch import FontMatch
+else:
+    from .CoreText import CoreText
 
 
 class FontManager:
@@ -80,9 +84,18 @@ class FontManager:
         return path if path and os.path.splitext(path)[1].lower() in cls.FONT_EXTS else None
 
     @classmethod
-    def _matchWindowsFont(cls, fontName: str = None, fullName: str = None,
-                          familyName: str = None, styleName: str = None) -> str | None:
-        pass
+    def _matchWindowsFont(cls, postScriptName: str = None, fullName: str = None,
+                          familyName: str = None, styleName: str = None, weight: int = 400, style: int = 0) -> str | None:
+        attrs = {}   # 用于筛选的字体描述字典
+        if postScriptName is not None:
+            attrs[FontMatch.FONT_PROPERTY_ID_POSTSCRIPT_NAME] = postScriptName
+        if fullName is not None:
+            attrs[FontMatch.FONT_PROPERTY_ID_FULL_NAME] = fullName
+        if familyName is not None:
+            attrs[FontMatch.FONT_PROPERTY_ID_FAMILY_NAME] = familyName
+        if not attrs:
+            return None
+
 
     @classmethod
     def _matchSystemFont(cls, fontName: str, styleName: str = None) -> str | None:

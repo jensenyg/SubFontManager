@@ -59,7 +59,7 @@ class CoreText:
     kCFStringEncodingUTF8 = 0x08000100  # 编码方式常量（macOS特有）
 
     @classmethod
-    def _getCTAttribute(cls, att: str):
+    def _GetCTAttribute(cls, att: str):
         """获取系统CoreText中的常量指针，注意该返回值不能被哈希"""
         return c_void_p.in_dll(cls._CT, att)
 
@@ -78,7 +78,7 @@ class CoreText:
     @classmethod
     def CTFontDescriptorCreateWithAttributes(cls, attrs: dict):
         """按照属性值创建字体描述符，它的返回值需要手动回收"""
-        keys = (c_void_p * len(attrs))(*list(cls._getCTAttribute(key) for key in attrs.keys()))
+        keys = (c_void_p * len(attrs))(*list(cls._GetCTAttribute(key) for key in attrs.keys()))
         vals = (c_void_p * len(attrs))(*list(attrs.values()))
         attr_dict = cls._CF.CFDictionaryCreate(None, keys, vals, len(attrs), None, None)
         desc = cls._CT.CTFontDescriptorCreateWithAttributes(attr_dict)  # 创建字体描述符
@@ -95,7 +95,7 @@ class CoreText:
         """从字体描述符中读取即字体路径"""
         BUFFER_LENGTH = 512
         buffer = ctypes.create_string_buffer(BUFFER_LENGTH)
-        res = cls._CT.CTFontDescriptorCopyAttribute(desc, cls._getCTAttribute(cls.kCTFontURLAttribute))
+        res = cls._CT.CTFontDescriptorCopyAttribute(desc, cls._GetCTAttribute(cls.kCTFontURLAttribute))
         success = cls._CF.CFURLGetFileSystemRepresentation(res, True, buffer, BUFFER_LENGTH)
         if success:
             cls.CFRelease(res)
