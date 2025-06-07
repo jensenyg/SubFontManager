@@ -10,5 +10,6 @@ x86/
 *.vcxproj.user
 *.psd
 config.ini
+fontmatch.dll
 test*.py
 temp*.py

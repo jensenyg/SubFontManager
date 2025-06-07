@@ -2,7 +2,7 @@
 #include "FontMatch.h"
 
 /**
- * 基于DirectWrite3的字体匹配类，仅在Windows10 1607后被支持，该类不需要缓存Postscript名和全名的字体索引
+ * 基于DirectWrite3的字体匹配类，仅在Windows10 1607后被支持，该类不需要缓存字体索引
  */
 class FontMatch3 : public FontMatch
 {
@@ -17,7 +17,7 @@ public:
     bool Init() override;
 
     // 匹配字体
-    const std::wstring GetMatchingFont(std::unordered_map<FONT_PROPERTY, std::wstring>& propDict) override;
+    const std::wstring GetMatchingFont(std::unordered_map<FONT_PROPERTY, std::wstring>& propDict, bool strict = false) override;
 
 protected:
     // 系统字体集

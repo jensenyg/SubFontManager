@@ -7,5 +7,6 @@ enum class FONT_PROPERTY : unsigned char {
     FAMILY_NAME,
     SUBFAMILY_NAME,
     WEIGHT,
-    STYLE
+    STYLE,
+    STRETCH
 };
