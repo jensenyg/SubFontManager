@@ -9,21 +9,27 @@ from utils import Lang
 
 class Font:
     """字体类，每个实例代表一个TTF，拥有唯一的Postscript Name"""
-    # TTF名表中几种名字的ID号
+    # TTF名表中几种名字的ID号 -----
     FamilyNameID = 1
     SubfamilyNameID = 2
     FullNameID = 4
     PostscriptNameID = 6
+    # Weight和Style常量 -----
+    WEIGHT_NORMAL = 400
+    WEIGHT_BOLD = 700
+    STYLE_NORMAL = 0
+    STYLE_OBLIQUE = 1
+    STYLE_ITALIC = 2
 
     def __init__(self, path: str, index: int = 0, openNow: bool = True):
-        self.path: str = path    # 字体文件路径，内存字体则此值随意指定
-        self.index: int = index  # 字体在路径内的编号
+        self.path: str = path   # 字体文件路径，内存字体则此值随意指定
+        self.index: int = index # 字体在路径内的编号
         self.postscriptName: str = ''       # Postscript名，是字体的唯一标识
         self.familyNames: set[str] = set()  # 字体家族名，包括各种语言的版本
         self.fullNames: set[str] = set()    # 字体全名，包括各种语言的版本
         self.styleNames: set[str] = set()   # 字体样式名，包括各种语言的版本
-        self.isBold: bool = False           # 是否粗体
-        self.isItalic: bool = False         # 是否斜体
+        self.weight: int = 400  # 字重，1-999, 常见如 400 (normal), 700 (bold)
+        self.style: int = 0     # 风格，0: Normal，1: Oblique，2: Italic
         self.isInMemory: bool = False       # 是否内存字体，即字幕内嵌字体
         self._byteStream: io.BytesIO | None = None  # 字体的数据字节流
 
@@ -41,22 +47,32 @@ class Font:
                 continue
             if record.nameID == self.FamilyNameID:
                 self.familyNames.add(record_str)
-            elif record.nameID == self.SubfamilyNameID:  # Style Name
-                # 只取英文样式名，因为字幕中只能指定粗斜体. 附：不同系统下的英文ID
+            # elif record.nameID == self.SubfamilyNameID:  # Style Name
+                # 不同系统下的英文ID
                 # Unicode: platformID=0, langID=1033; Mac: platformID=1, langID=0; Win: platformID=3, langID=1033.
-                if (record.platformID, record.langID) in ((0, 1033), (1, 0), (3, 1033)):
-                    self.styleNames.add(record_str)
-                    # 判断粗体斜体 ------
-                    if record_str == 'bold italic':
-                        self.isBold, self.isItalic = True, True
-                    elif record_str == 'bold':
-                        self.isBold = True
-                    elif record_str == 'italic':
-                        self.isItalic = True
             elif record.nameID == self.FullNameID:
                 self.fullNames.add(record_str)
             elif record.nameID == self.PostscriptNameID:
                 self.postscriptName = record_str
+
+        if "OS/2" in ttFont:
+            os2 = ttFont["OS/2"]
+            self.weight = os2.usWeightClass
+            fs_selection = os2.fsSelection
+            if fs_selection & 0x01:     # ITALIC flag
+                self.style = 2  # Italic
+            elif fs_selection & 0x200:  # OBLIQUE flag
+                self.style = 1  # Oblique
+
+    @property
+    def isBold(self) -> bool:
+        """是否粗体"""
+        return self.weight == self.WEIGHT_BOLD
+
+    @property
+    def isItalic(self) -> bool:
+        """是否斜体"""
+        return self.style == self.STYLE_ITALIC or self.style == self.STYLE_OBLIQUE
 
     @classmethod
     def createFontsFromFile(cls, path: str) -> list[Self]:

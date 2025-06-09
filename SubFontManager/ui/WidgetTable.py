@@ -339,7 +339,7 @@ class WidgetTable(tk.Frame):
             self._suspendedResizing = True  # 标记已有挂起的重绘动作
             self.after_idle(self.onResize, None)    # 重新布局所有列
 
-        return width_inc if isRight else -width_inc
+        return width_inc if isRight else -width_inc # 返回实际移动的距离
 
     def onResize(self, event=None):
         """窗口尺寸变化"""

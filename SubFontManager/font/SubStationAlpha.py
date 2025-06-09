@@ -12,14 +12,15 @@ from .FontManager import FontManager
 class SubFontDesc:
     """SubStationAlpha.gatherFonts返回的字体描述类"""
     fontName: str   # 字体被引用的名字
-    styleName: str  # 字体被引用的样式名
     text: set[str]  # 字体覆盖的（不重复）字符
+    bold: bool      # 字体是否是粗体
+    italic: bool    # 字体是否是斜体
     isEmbed: bool = False   # 当前字体对象是否是内嵌字体
     font: Font | None = None    # 字体对象，可能为None
 
 
-class SubFontDescDict(dict[tuple[str, str], SubFontDesc]):
-    """用于收集字幕中出现过字体以及其覆盖的字符，结构为{(fontName, styleName): chars}"""
+class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
+    """用于收集字幕中出现过字体以及其覆盖的字符，结构为{(fontName, bold, italic): chars}"""
 
     def __init__(self, fontMgr: FontManager):
         super().__init__()
@@ -27,21 +28,18 @@ class SubFontDescDict(dict[tuple[str, str], SubFontDesc]):
 
     def addTextToFont(self, fontName: str, bold: str | bool, italic: str | bool, text: str = '', font: Font = None):
         """向字典中加入字体并合并覆盖的文字"""
-        # 构造样式名文本，如：bold italic ----------
-        styleName = 'bold' if int(bold) else ''  # 非0都判断为真，如1、-1等
-        styleName += (' italic' if styleName else '') if int(italic) else ''
-        if not styleName:
-            styleName = 'regular'
+        bold = bool(int(bold))  # 非0都判断为真，如1、-1、2等
+        italic = bool(int(italic))
         # 向字典中加入字体覆盖的文字 ----------
-        key = (fontName, styleName)     # 字典的访问键
+        key = (fontName, bold, italic)  # 字典的访问键
         chars = set(c for c in text)    # 将每一个字符单独加入set，合并重复字符
         if key in self:
             self[key].text.update(chars)
         else:   # 新字体，搜索文件源，注意搜索结果可能为None
             if font is None:
-                font = self.fontMgr.find(fontName, styleName)
+                font = self.fontMgr.match(fontName, bold, italic)
             is_embed = bool(font and font.isInMemory)
-            self[key] = SubFontDesc(fontName, styleName, chars, is_embed, font)
+            self[key] = SubFontDesc(fontName, chars, bold, italic, is_embed, font)
 
 
 class SubStationAlpha:

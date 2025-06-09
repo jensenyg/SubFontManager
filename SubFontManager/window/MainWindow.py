@@ -116,7 +116,7 @@ class MainWindow:
 
     def onDrop(self, event):
         """拖放文件响应"""
-        file_path = event.data.strip('{}')
+        file_path = os.path.normpath(event.data.strip('{}'))    # 去掉两边的{}并转换为OS习惯格式（用\还是/）
         if file_path.endswith(('.ass', '.ssa')):
             self.srcEntry.delete(0, tk.END)
             self.srcEntry.insert(0, file_path)
@@ -160,8 +160,8 @@ class MainWindow:
             self.statusBar.set(Lang["Open failed."], duration=3)    # 设置状态栏文字
         else:   # 载入成功
             if subtitleObj.ignoredFonts:    # 检查是否有忽略的内嵌字体并弹窗提示
-                messagebox.showerror(Lang['Warning'], Lang['Embedded fonts {s} file error, ignored.']
-                                                      .format(s=f'"{'", "'.join(subtitleObj.ignoredFonts)}"'))
+                messagebox.showerror(Lang['Warning'], Lang['Embedded fonts {ff} file error, ignored.']
+                                                      .format(ff=f'"{'", "'.join(subtitleObj.ignoredFonts)}"'))
             self.applyBtn.configure(state=tk.NORMAL)    # 解开"应用"按钮禁用
             if self.loadBtn.cget('text') != Lang['Reload']: # 设置"载入"按钮为"重新载入"
                 self.loadBtn.configure(text=Lang['Reload'], state=tk.NORMAL)

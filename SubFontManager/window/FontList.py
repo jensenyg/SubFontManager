@@ -22,7 +22,9 @@ class RowItem:
     source: tk.StringVar        # 文件源，注意此变量可能会取到占位符
     sourceOptions: list[str]    # 文件源下拉列表内容
     sourceWidget: ui.Combobox | None  # 文件源组合框控件
-    font: Font | None           # 字体对象
+    bold: bool      # 是否粗体
+    italic: bool    # 是否斜体
+    font: Font | None   # 字体对象
     modified: bool  # 字体内嵌状态是否被修改
 
 
@@ -55,12 +57,6 @@ class FontList(ui.WidgetTable):
         NOSRC = '<%s>' % Lang['No source']
         All = (EMBED, SYSTEMFONT, SRCDIR, BROWSE, EXTRACT)
 
-    StyleTexts = {  # 样式名称表
-        'regular': Lang['Regular'],
-        'bold': Lang['Bold'],
-        'italic': Lang['Italic'],
-        'bold italic': Lang['Bold Italic']
-    }
     EMBED_NAME_PREFIX = 'embed:/'    # 嵌入字体名的前缀
     WARNING_MAX_CHAR_COUNT = 500    # 警告内嵌字数过多的门槛
     WARNING_MAX_FONT_SIZE = 1024000  # 警告内嵌字幕文件过大的门槛
@@ -110,12 +106,19 @@ class FontList(ui.WidgetTable):
         for fontDesc in subFontDescs:
             if not adding_embed_items and fontDesc.isEmbed:  # 开始添加内嵌字体条目时，插入一个分隔行
                 adding_embed_items = True
-                self.addSeparateRow(Lang['Embedded fonts'], indent=38 if App.isMac else 26, padx=5, pady=4)
+                self.addSeparateRow(Lang['Embedded fonts'], indent=38 if App.isMac else 36, padx=5, pady=4)
 
+            # 生成用于显示的样式名字，如Bold, Italic, Bold Italic ------
+            style_name = 'Bold' if fontDesc.bold else ''
+            style_name += (' Italic' if style_name else 'Italic') if fontDesc.italic else ''
+            if not style_name:
+                style_name = 'Regular'
+
+            # 该行字体的所有相关属性 ------
             row_item = RowItem(  # 保存行的所有信息和变量
                 fontName=fontDesc.fontName,     # 字体名
                 fontNameWidget=None,            # 字体名Label控件
-                styleName=fontDesc.styleName,   # 样式名
+                styleName=style_name,   # 样式名
                 embed=tk.BooleanVar(),          # 是否内嵌
                 embedWidget=None,               # embed复选框控件
                 subset=tk.BooleanVar(),         # 是否子集化
@@ -126,6 +129,8 @@ class FontList(ui.WidgetTable):
                 # 以下是不直接参与显示的属性
                 text=fontDesc.text,         # 字体覆盖的文本
                 isEmbed=fontDesc.isEmbed,   # 当前找到的字体源是否是内嵌字体
+                bold=fontDesc.bold,         # 是否粗体
+                italic=fontDesc.italic,     # 是否斜体
                 modified=False,             # 字体内嵌状态是否被修改，用于决定该行显示为粗体
                 font=fontDesc.font          # 行关联的字体对象，可用于嵌入
             )
@@ -154,8 +159,7 @@ class FontList(ui.WidgetTable):
             row_item.fontNameWidget = ui.Label(row_frame, text=row_item.fontName, anchor=tk.W)
             row_frame.addCell(row_item.fontNameWidget, pady=(0, 1))
             # Label：样式名
-            row_frame.addCell(ui.Label(row_frame, text=self.StyleTexts.get(row_item.styleName, ''), anchor=tk.CENTER),
-                              pady=(0, 1))
+            row_frame.addCell(ui.Label(row_frame, text=row_item.styleName, anchor=tk.CENTER), pady=(0, 1))
             # Label：字数统计
             row_frame.addCell(ui.Label(row_frame, text=str(len(row_item.text)), anchor=tk.E), padx=(0, 2), pady=(0, 1))
             # Checkbox：子集化
@@ -197,27 +201,23 @@ class FontList(ui.WidgetTable):
 
             # 检查源文件是否存在以及文件内是否都包含指定的字体，并找到关联的字体对象 -------------
             file_path = row_item.sourceWidget.get()  # 文件源组合款内的值
+            font_name_style = f"{row_item.fontName} {Lang[row_item.styleName]}"
             if file_path.startswith(self.EMBED_NAME_PREFIX):  # 文件源内填写的是内嵌字体
                 file_path = file_path[len(self.EMBED_NAME_PREFIX):]  # 切掉路径头的embed:/
                 if not row_item.font or file_path != row_item.font.path:  # 如果路径变更
-                    row_item.font = self.subtitleObj.fontMgr.find(
-                        row_item.fontName, row_item.styleName, FontManager.EMBED)
+                    row_item.font = self.subtitleObj.fontMgr.match(
+                        row_item.fontName, row_item.bold, row_item.italic, FontManager.EMBED)
                     if row_item.font is None:
                         warnings.append(Lang["Embedded file {p} doesn't exist."].format(f=file_path))
             elif not os.path.isfile(file_path):  # 路径不是文件
-                warnings.append(Lang["{p} (source of '{f} {s}') doesn't exist."]
-                                .format(p=file_path, f=row_item.fontName,
-                                        s=self.StyleTexts.get(row_item.styleName, '')))
+                warnings.append(Lang["{p} (source of \"{fs}\") doesn't exist."].format(p=file_path, fs=font_name_style))
             elif not os.access(file_path, os.R_OK):  # 路径不可访问
-                warnings.append(Lang["Unabled to read {p} (source of '{f} {s}')."]
-                                .format(p=file_path, f=row_item.fontName,
-                                        s=self.StyleTexts.get(row_item.styleName, '')))
+                warnings.append(Lang["Unabled to read {p} (source of \"{fs}\")."].format(p=file_path, fs=font_name_style))
             elif not row_item.font or file_path != row_item.font.path:  # 正常外部路径，如果路径变更
-                row_item.font = FontManager(path=file_path).find(
-                    row_item.fontName, row_item.styleName, FontManager.LOCAL)
+                row_item.font = FontManager(path=file_path).match(
+                    row_item.fontName, row_item.bold, row_item.italic, FontManager.LOCAL)
                 if row_item.font is None:  # 在内嵌或外部路径中没找到字体
-                    warnings.append(Lang["File {p} doesn't contain font '{f} {s}'."]
-                                    .format(p=file_path, f=row_item.fontName, s=row_item.styleName))
+                    warnings.append(Lang["File {p} doesn't contain font \"{fs}\"."].format(p=file_path, fs=font_name_style))
 
         if not have_task:
             messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
@@ -230,8 +230,8 @@ class FontList(ui.WidgetTable):
         for row_item in row_items:
             if not row_item.isEmbed and not row_item.subset.get() \
                     and os.path.getsize(row_item.sourceWidget.get()) > self.WARNING_MAX_FONT_SIZE:  # 文件过大且不子集化
-                warnings.append(Lang["File source of {f} {s} is big and subset is not selected,"]
-                                .format(f=row_item.fontName, s=row_item.styleName))
+                warnings.append(Lang["File source of \"{fs}\" is big and subset is not selected,"]
+                                .format(fs=f"{row_item.fontName} {Lang[row_item.styleName]}"))
         if warnings and not messagebox.askyesno(Lang['Reminding'],
                 '\n'.join(warnings) + '\n' + Lang["embedding them directly may significantly increase the size"
                                                   "of the subtitle file, are you sure you want to proceed?"]):
@@ -252,10 +252,10 @@ class FontList(ui.WidgetTable):
                 if next((row_item for row_item in items if row_item.embed.get() != embed), None):
                     problematic_font_names.append(name)
         if problematic_font_names and not messagebox.askyesno(Lang['Reminding'],
-                Lang["Fonts {f} contain multiple styles, but not all of them have been selected for embedding. "
+                Lang["Fonts {ff} contain multiple styles, but not all of them have been selected for embedding. "
                      "This may cause subtitle display issues, as unembedded styles will still reference the "
                      "embedded styles as their source during playback, resulting in incorrect rendering. "
-                     "Are you sure you want to proceed?"].format(f=f'"{'", "'.join(problematic_font_names)}"')):
+                     "Are you sure you want to proceed?"].format(ff=f'"{'", "'.join(problematic_font_names)}"')):
             return False  # 表示操作取消
 
         return True
@@ -343,15 +343,15 @@ class FontList(ui.WidgetTable):
         char_count = len(rowItem.text)
         if not rowItem.embed.get() and (char_count >= self.WARNING_MAX_CHAR_COUNT or char_count == 0):
             self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
+            font_name_style = f"{rowItem.fontName} {Lang[rowItem.styleName]}"
             checked = ((char_count >= self.WARNING_MAX_CHAR_COUNT  # 嵌入字符过多警告
                         and messagebox.askokcancel(Lang['Reminding'],
-                            Lang["Font '{f} {s}' covers {c} charactors, embedding it may significantly "
-                                 "increases the size of the subtitle file, are you sure about this?"]
-                                .format(f=rowItem.fontName, s=self.StyleTexts.get(rowItem.styleName), c=char_count)))
-                       or (char_count == 0 and  # 字体不覆盖任何字符警告
-                           messagebox.askokcancel(Lang['Reminding'],
-                               Lang["Font '{f} {s}' doesn't cover any charactor, are you sure you want to embed it?"]
-                                   .format(f=rowItem.fontName, s=self.StyleTexts.get(rowItem.styleName)))))
+                            Lang["Font \"{fs}\" covers {c} charactors, embedding it may significantly increase "
+                                 "the size of the subtitle file, are you sure you want to proceed?"]
+                                .format(fs=font_name_style, c=char_count)))
+                        or (char_count == 0 and messagebox.askokcancel(Lang['Reminding'],
+                            Lang["Font \"{fs}\" doesn't cover any charactor, are you sure you want to embed it?"]
+                                .format(fs=font_name_style))))
             rowItem.embedWidget.focus_set()   # 弹窗之后需手动取回焦点
 
         # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
@@ -362,7 +362,7 @@ class FontList(ui.WidgetTable):
     def onSubsetClicked(self, rowItem: RowItem):
         """子集化复选框状态改变"""
         if str(rowItem.embedWidget.cget('state')) == 'disabled':  # 禁用的控件不用响应
-            return
+            return None
         # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
         rowItem.subset.set(not rowItem.subset.get())
         self.setRowStatus(rowItem)    # 当子集复选框状态变化时，重设置行状态
@@ -383,10 +383,10 @@ class FontList(ui.WidgetTable):
         if src_text == self.SrcCmbOptions.EMBED:         # 使用内嵌字体，能选择这个选项的都是内嵌字体
             src_text_new = self.EMBED_NAME_PREFIX + rowItem.font.path    # 将文件源内的路径设置为embed:/...
         elif src_text == self.SrcCmbOptions.SYSTEMFONT:  # 使用系统字体
-            font = self.subtitleObj.fontMgr.find(rowItem.fontName, rowItem.styleName, FontManager.SYSTEM)
+            font = self.subtitleObj.fontMgr.match(rowItem.fontName, rowItem.bold, rowItem.italic, FontManager.SYSTEM)
             src_text_new = font.path if font else ''
         elif src_text == self.SrcCmbOptions.SRCDIR:      # 使用同目录下的字体
-            font = self.subtitleObj.fontMgr.find(rowItem.fontName, rowItem.styleName, FontManager.LOCAL)
+            font = self.subtitleObj.fontMgr.match(rowItem.fontName, rowItem.bold, rowItem.italic, FontManager.LOCAL)
             src_text_new = font.path if font else ''
         elif src_text == self.SrcCmbOptions.BROWSE:      # 手动选择路径
             src_text_new = filedialog.askopenfilename(
@@ -418,7 +418,7 @@ class FontList(ui.WidgetTable):
     def onDestroy(self, event):
         """关闭窗口响应，保存列宽配置"""
         if event.widget is not self:
-            return
+            return None
         App.Config.set('General', 'fontColumnWeight', self._headers[1].weight)
         App.Config.set('General', 'countColumnWeight', self._headers[3].width)
         App.Config.set('General', 'sourceColumnWeight', self._headers[5].weight)

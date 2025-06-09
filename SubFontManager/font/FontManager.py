@@ -3,18 +3,20 @@ from utils.App import App
 from .Font import Font
 from .SectionLines import FontDict
 
-if App.isWindows:
-    from .FontMatch import FontMatch
+if App.isWindows:  # Windows 系统字体匹配库
+    from .WinFontMatch import WinFontmatch as FontMatch
+elif App.isMac:  # MacOS 系统字体匹配库
+    from .MacFontMatch import MacFontMatch as FontMatch
 else:
-    from .CoreText import CoreText
+    raise Exception("Unsupported system!")
 
 
 class FontManager:
     """字体管理类，提供一个路径内所有字体的信息缓存、查询、子集化等操作"""
     # 搜索范围标志码 -------
-    EMBED = 0b00000001
-    LOCAL = 0b00000010
-    SYSTEM = 0b00000100
+    EMBED = 0b001
+    LOCAL = 0b010
+    SYSTEM = 0b100
 
     FONT_EXTS = ['.otf', '.ttc', '.ttf', '.otc']  # 支持的字体文件后缀名
 
@@ -59,99 +61,56 @@ class FontManager:
                     print(f"Warning: Unable to read font info: {font_path}, font ignored.")
 
     @classmethod
-    def _matchMacFont(cls, fontName: str = None, fullName: str = None,
-                      familyName: str = None, styleName: str = None) -> str | None:
-        """
-        在MacOS中根据字体描述查找系统中合适的字体
-        :param fontName: 字体名，可以是PostScript Name，Full Name或Family Name，按确切程度匹配
-        :param fullName: 字体全名
-        :param familyName: 字体家族名
-        :param styleName: 字体样式名
-        :return: 匹配到则返回字体文件路径，匹配不到则返回None
-        """
-        attrs = {}   # 用于筛选的字体描述字典
-        if fontName is not None:
-            attrs[CoreText.kCTFontNameAttribute] = fontName
-        if fullName is not None:
-            attrs[CoreText.kCTFontDisplayNameAttribute] = fullName
-        if familyName is not None:
-            attrs[CoreText.kCTFontFamilyNameAttribute] = familyName
-        if styleName is not None:
-            attrs[CoreText.kCTFontStyleNameAttribute] = styleName
-        if not attrs:
-            return None
-        path = CoreText.GetMatchingFontPath(attrs)  # 匹配字体路径
-        return path if path and os.path.splitext(path)[1].lower() in cls.FONT_EXTS else None
-
-    @classmethod
-    def _matchWindowsFont(cls, postScriptName: str = None, fullName: str = None,
-                          familyName: str = None, styleName: str = None, weight: int = 400, style: int = 0) -> str | None:
-        attrs = {}   # 用于筛选的字体描述字典
-        if postScriptName is not None:
-            attrs[FontMatch.FONT_PROPERTY_ID_POSTSCRIPT_NAME] = postScriptName
-        if fullName is not None:
-            attrs[FontMatch.FONT_PROPERTY_ID_FULL_NAME] = fullName
-        if familyName is not None:
-            attrs[FontMatch.FONT_PROPERTY_ID_FAMILY_NAME] = familyName
-        if not attrs:
-            return None
-
-
-    @classmethod
-    def _matchSystemFont(cls, fontName: str, styleName: str = None) -> str | None:
+    def _matchSystemFont(cls, fontName: str, bold: bool = False, italic: bool = False) -> str | None:
         """
         在系统中根据字体描述查找系统中合适的字体，支持各种名字和语言匹配
         :param fontName: 字体名，可以是PostScript Name，Full Name或Family Name，按确切程度匹配
-        :param styleName: 字体样式名，找不到会以Regular或家族内第一个样式替代
+        :param bold: 是否粗体
+        :param italic: 是否斜体，包括Italic和Oblique
         :return: 匹配到则返回字体文件路径，匹配不到则返回None
         """
-        if App.isWindows:   # Windows
-            matchFunc = cls._matchWindowsFont
-        elif App.isMac:     # MacOS
-            matchFunc = cls._matchMacFont
-        else:
-            raise Exception("Unsupported system!")
-
-        path = matchFunc(fontName, styleName=styleName)  # 按样式查找
-        if path is None:    # 找不到则放弃样式限定
-            path = matchFunc(fontName)
-        return path
+        path = FontMatch.getMatchingFontPath(fontName, bold, italic)    # 调用接口匹配系统字体
+        return path if path and os.path.splitext(path)[1].lower() in cls.FONT_EXTS else None
 
     @staticmethod
-    def _findInFonts(fonts: list[Font], fontName: str, styleName: str = None) -> Font | None:
+    def _matchInFonts(fonts: list[Font], fontName: str, bold: bool = False, italic: bool = False) -> Font | None:
         """
         从给定字体列表中找到最匹配给定描述的字体，模拟系统匹配字体的逻辑，但不一定完全一致
         :param fonts: 字体列表
         :param fontName: 字体名，可以是PostScript Name，Family Name或Full Name，按确切程度匹配
-        :param styleName: 字体样式名
+        :param bold: 是否粗体
+        :param italic: 是否斜体，包括Italic和Oblique
         :return: Font，找不到则返回None
         """
         fontName = fontName.lower()  # 转换为小写匹配
-        if styleName is not None:
-            styleName = styleName.lower()    # 转换为小写匹配
-
         font: Font | None = next((f for f in fonts if fontName == f.postscriptName), None)  # 匹配Postscript名
 
+        # 先尝试严格匹配 -------
         if font is None:    # 匹配家族名
             family_fonts = [f for f in fonts if fontName in f.familyNames]  # 找出字体全家
-            if family_fonts:
-                font = None if styleName is None else (  # 匹配样式名
-                    next((f for f in family_fonts if styleName in f.styleNames), None))
+            if family_fonts:    # 匹配粗体斜体
+                font = next((f for f in family_fonts if f.isBold == bold and f.isItalic == italic), None)
         else:
             family_fonts = None
 
         if font is None:    # 匹配全名
-            font = next((f for f in fonts if fontName in f.fullNames), None)
+            font = next((f for f in fonts if fontName in f.fullNames
+                         and f.isBold == bold and f.isItalic == italic), None)
 
-        if font is None and family_fonts:   # 同家族regular做样式替补，要是regular也没有就用第一个
-            font = next((f for f in family_fonts if 'regular' in f.styleNames), family_fonts[0])
+        # 如果严格匹配失败，则试试家族内粗体斜体模糊匹配 -------
+        if font is None and family_fonts:
+            font = next((f for f in family_fonts if f.isBold == bold),  # 忽略斜体尝试匹配粗体符合的
+                        next((f for f in family_fonts if f.isItalic == italic), # 忽略粗体尝试匹配斜体符合的
+                             family_fonts[0]))  # 都没有就用第一个吧
+
         return font
 
-    def find(self, fontName: str, styleName: str = None, scope: int = None) -> Font | None:
+    def match(self, fontName: str, bold: bool = False, italic: bool = False, scope: int = None) -> Font | None:
         """
         根据字体名称查找字体文件，先搜索系统安装字体再搜索当前目录字体
         :param fontName: 字体名
-        :param styleName: 字体样式名，如regular, bold, italic, bold italic
+        :param bold: 是否粗体
+        :param italic: 是否斜体，包括Italic和Oblique
         :param scope: 搜索范围限定.
                       FontManager.EMBED：在内嵌字体中搜索，
                       FontManager.LOCAL：在当前目录搜索，
@@ -164,15 +123,15 @@ class FontManager:
             scope = self.EMBED | self.LOCAL | self.SYSTEM
 
         if scope & self.EMBED:  # 在内嵌字体中查找
-            font = self._findInFonts(self._embedFonts, fontName, styleName)
+            font = self._matchInFonts(self._embedFonts, fontName, bold, italic)
 
         if font is None and scope & self.LOCAL:     # 在本地字体中查找
-            font = self._findInFonts(self._localFonts, fontName, styleName)
+            font = self._matchInFonts(self._localFonts, fontName, bold, italic)
 
         if font is None and scope & self.SYSTEM:    # 在系统字体中查找
-            path = self._matchSystemFont(fontName, styleName)
+            path = self._matchSystemFont(fontName, bold, italic)
             if path:    # 如果找到，创建Font对象
-                font = self.__class__(path=path).find(fontName, styleName, self.LOCAL)
+                font = self.__class__(path=path).match(fontName, bold, italic, self.LOCAL)
                 if font is None:        # 如果系统匹配到字体的这里却匹配不上，说明本类的匹配逻辑不对
                     font = Font(path)   # 这种情况发生的概率不大，如果发生，则直接取文件内的第一个字体吧
 
