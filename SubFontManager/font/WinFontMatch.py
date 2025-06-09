@@ -17,7 +17,8 @@ class WinFontmatch:
     _dll.GetMatchingFont.argtypes = [ctypes.c_char_p, ctypes.c_bool]
     _dll.GetMatchingFont.restype = ctypes.c_char_p
 
-    _dll.Init()
+    if not _dll.Init():
+        raise Exception('"fontmatch.dll" initialization failed!')
 
     @staticmethod
     def _GetDllValue(dll, valName: str) -> int:
@@ -101,9 +102,3 @@ class WinFontmatch:
             path = cls._matchAnyName(fontName, font_props, strict=False)
 
         return path
-
-    @classmethod
-    def getMatchingFontPath2(cls, fontName: str = None, postscriptName: str = None,
-                            fullName: str = None, familyName: str = None, styleName: str = None,
-                            bold: bool = False, italic: bool = False) -> str | None:
-        pass
