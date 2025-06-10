@@ -1,1 +1,0 @@
-pyinstaller SubFontManager.spec --clean --noconfirm

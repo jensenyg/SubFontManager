@@ -18,7 +18,7 @@ else:
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[],
+    binaries=[('fontmatch.dll', '.')],
     datas=[
         (tkdnd_path, 'tkinterdnd2'),
         ('icon/icon@128.png' if is_macos else 'icon/icon@256.png', 'icon'),
@@ -28,9 +28,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    # Indispensables: xml, inspect, logging
-    excludes=['test', 'unittest', 'doctest', 'pydoc', 'pdb', 'cProfile', 'cgi', 'venv', 'asyncio', 'setuptools', 'pip',
-              'distutils', 'email', 'html', 'http', 'turtle', 'idlelib', 'lib2to3', 'cgitb', 'concurrent', 'sqlite3'],
+    # Indispensables: xml, inspect, logging, setuptools, distutils, email, http
+    excludes=['test', 'unittest', 'doctest', 'pydoc', 'pdb', 'cProfile', 'cgi', 'venv', 'asyncio', 'pip',
+              'html', 'turtle', 'idlelib', 'lib2to3', 'cgitb', 'concurrent', 'sqlite3'],
     noarchive=False,
     optimize=0,
 )
