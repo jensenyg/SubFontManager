@@ -47,7 +47,7 @@
     "Subset": "子集化",
     "File source": "文件源",
     "Embedded fonts": "内嵌字体",
-    "Subtitle encoding cannot be recognized.": "字幕编码无法识别.",
+    "Subtitle encoding cannot be recognized.": "字幕编码无法识别。",
     "Subtitle line {d} format error.": "字幕 {d} 行格式错误。",
     "Embedded file {p} doesn't exist.": "内嵌文件 {p} 不存在。",
     "{p} (source of \"{fs}\") doesn't exist.": "“{fs}” 的文件源 {p} 不存在。",

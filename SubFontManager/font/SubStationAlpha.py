@@ -45,6 +45,13 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
 class SubStationAlpha:
     """ASS字幕类，维护字幕的所有Style、Font、Dialogue内容和读写操作"""
 
+    # 分析对白文本中内联样式的正则式 ---------
+    _inlineStyle_ptn = re.compile(r'\{.+?}')    # 用于查找行内样式{}的内容
+    _inlineFont_ptn = re.compile(r'\\fn(.+?)[\\,}]')# 用于查找{}内的\fn内容并提取字体名
+    _inlineBold_ptn = re.compile(r'\\b\s*(\d+)')    # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord混淆
+    _inlineItalic_ptn = re.compile(r'\\i\s*(\d+)')  # 用于查找{}内的\i并提取后面的数字
+    _section_ptn = re.compile(r'^\[.*]')    # 匹配中括号行[...]
+
     def __init__(self, path: str, encoding: str = None):
         self.filePath = path    # 文件路径
 
@@ -104,16 +111,15 @@ class SubStationAlpha:
             self.dialogueList.sectionName.lower(): self.dialogueList
         }
 
-        section_pattern = re.compile(r'^\[.*]')  # 匹配中括号行[...]
         section_lines: SectionLines | None = None   # 当前行所在的Section对象
         continuous_section = False  # 是否正在读取连贯Section
 
-        with (open(path, 'r', encoding=encoding) as file):    # 打开文件
+        with (open(path, 'r', encoding=encoding) as file):  # 打开文件
             for i, line in enumerate(file):   # 读取每一行
                 first_printable_pos = next((j for j, c in enumerate(line) if c.isprintable()), len(line))
                 line = line[first_printable_pos:].rstrip('\r\n')    # 去掉开头的不可打印字符和尾部的回车
                 if not continuous_section:  # 非连贯段，即这一行可以开始一个新的Section
-                    match_obj = section_pattern.match(line)  # 检查是否以[*]开头的Section行
+                    match_obj = self._section_ptn.match(line)   # 检查是否以[*]开头的Section行
                     if match_obj:    # 中括号行出现，切换行类型
                         section_name = match_obj.group(0).lower()
                         # 对于非标准的Section，如"[Aegisub Project Garbage]"，临时新建一个SectonLines保存
@@ -122,7 +128,7 @@ class SubStationAlpha:
                             self.sectionsInOrder.append(section_lines)  # 保存入顺序表
                         continue
                 try:
-                    continuous_section = section_lines.append(line)  # 向SectionLines插入新行
+                    continuous_section = section_lines.append(line) # 向SectionLines插入新行
                 except ValueError:
                     raise Exception(Lang["Subtitle line {d} format error."].format(d=i+1))
 
@@ -165,12 +171,6 @@ class SubStationAlpha:
                 self.styleDict.get(style_name, 'italic')
             )
 
-        # 分析对白文本中内联样式的正则式 ---------
-        inlineStyle_ptn = re.compile(r'\{.+?}')  # 用于查找行内样式{}的内容
-        inlineFont_ptn = re.compile(r'\\fn(.+?)[\\,}]')  # 用于查找{}内的\fn内容并提取字体名
-        inlineBold_ptn = re.compile(r'\\b\s*(\d+)')      # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord混淆
-        inlineItalic_ptn = re.compile(r'\\i\s*(\d+)')    # 用于查找{}内的\i并提取后面的数字
-
         # 收集Dialogue中出现的字体 ---------
         for i in range(len(self.dialogueList)):  # 遍历每一行对白
             # 获取该行的样式名，去掉开头可能存在的*号
@@ -182,7 +182,7 @@ class SubStationAlpha:
             italic = self.styleDict.get(style_name, 'italic')   # 是否斜体，如"1"
             # 查找行内样式{} ---------
             text = self.dialogueList.get(i, 'text')  # 对白文本部分，里面可能还有{}内联样式
-            match_iter = inlineStyle_ptn.finditer(text)  # {}正则匹配
+            match_iter = self._inlineStyle_ptn.finditer(text)  # {}正则匹配
             pos = 0    # 字符位置指针
             for m_obj in match_iter:    # 遍历每一个{}中的内容
                 # 将{}之前的文字都划归给上一种样式
@@ -190,15 +190,15 @@ class SubStationAlpha:
                 pos = m_obj.end()
                 inline_style_str = m_obj.group().lower()    # {}以及内部的文字
                 # 处理{}中的\fn ---------
-                all_match = inlineFont_ptn.findall(inline_style_str)
+                all_match = self._inlineFont_ptn.findall(inline_style_str)
                 if all_match:   # 提取最后一个\fn后面的字体名
                     fontname = all_match[-1].strip()
                 # 处理{}中的\b ----------
-                all_match = inlineBold_ptn.findall(inline_style_str)
+                all_match = self._inlineBold_ptn.findall(inline_style_str)
                 if all_match:   # 提取最后一个\b后面的数字
                     bold = all_match[-1]
                 # 处理{}中的\i ----------
-                all_match = inlineItalic_ptn.findall(inline_style_str)
+                all_match = self._inlineItalic_ptn.findall(inline_style_str)
                 if all_match:   # 提取最后一个\i后面的数字
                     italic = all_match[-1]
             # 将最后一个{}（或没有）之后的文字都划归给最后一个样式

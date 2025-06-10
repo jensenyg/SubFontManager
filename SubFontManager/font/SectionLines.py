@@ -1,6 +1,6 @@
 import io
 from typing import Self
-from .UU import UU
+from . import UU    # 导入Cython版本UUEncoding库
 
 
 class SectionLines:
@@ -152,7 +152,7 @@ class FontDict(dict[str, list[str]], SectionLines):
         if not lineStr:   # 空行，进入下一字体或下一Section
             self.currentFontname = None
             return False
-        if lineStr.startswith(self.FONTNAME_PREFIX):    # 字体名行
+        if lineStr.startswith(self.FONTNAME_PREFIX):    # 字体名行，UUEncoding中不会出现小写字母，所以fontname可以用于判断新字体
             self.currentFontname = lineStr[len(self.FONTNAME_PREFIX):].strip()
             if self.currentFontname in self:
                 self[self.currentFontname].append('')   # 空字串为初值，方便后期+=

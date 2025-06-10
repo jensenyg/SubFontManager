@@ -6,9 +6,13 @@ dist/
 .vs/
 x64/
 x86/
+temp/
 *.aps
 *.vcxproj.user
 *.psd
+*.pyd
+*.so
+SubFontManager/**/*.c
 config.ini
 fontmatch.dll
 test*.py

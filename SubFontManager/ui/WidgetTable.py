@@ -318,7 +318,7 @@ class WidgetTable(tk.Frame):
             return 0
 
         target_col.width += width_inc   # 调整目标列宽度
-        total_weight_after = sum([h.weight for h in cols_after])    # 左/右侧的列的总权重
+        total_weight_after = sum(h.weight for h in cols_after)    # 左/右侧的列的总权重
 
         # 将宽度变化量按权重分配给左/右侧的列，因为目标列宽度变化，其他列就要消化掉这些变化量，才能保证窗口总宽度不变 ------
         width_to_alloc = -width_inc # 待分配的变化量，初值为目标列变化量的负值
@@ -330,7 +330,7 @@ class WidgetTable(tk.Frame):
                 total_weight_after -= col.weight
 
         # 重新计算所有列的权重 ------
-        total_weighted_width = sum([h.width for h in self._headers if h.weight])    # 所有权重列总宽度
+        total_weighted_width = sum(h.width for h in self._headers if h.weight)    # 所有权重列总宽度
         for column in self._headers:
             if column.weight:   # 无权重列始终保持无权重
                 column.weight = column.width / total_weighted_width
