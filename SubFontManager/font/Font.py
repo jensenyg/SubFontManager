@@ -21,7 +21,7 @@ class Font:
     STYLE_OBLIQUE = 1
     STYLE_ITALIC = 2
 
-    def __init__(self, path: str, index: int = 0, openNow: bool = True):
+    def __init__(self, path: str, index: int = 0, inMemory: bool = False, openNow: bool = True):
         self.path: str = path   # 字体文件路径，内存字体则此值随意指定
         self.index: int = index # 字体在路径内的编号
         self.inTTC: bool = os.path.splitext(path)[1].lower().endswith('.ttc')   # 字体是否在TTC文件内
@@ -31,7 +31,7 @@ class Font:
         self.styleNames: set[str] = set()   # 字体样式名，包括各种语言的版本
         self.weight: int = 400  # 字重，1-999, 常见如 400 (normal), 700 (bold)
         self.style: int = 0     # 风格，0: Normal，1: Oblique，2: Italic
-        self.isInMemory: bool = False       # 是否内存字体，即字幕内嵌字体
+        self.inMemory: bool = inMemory      # 是否内存字体，即字幕内嵌字体
         self._byteStream: io.BytesIO | None = None  # 字体的数据字节流
 
         if openNow and os.path.isfile(self.path) and os.access(self.path, os.R_OK):  # 检查路径
@@ -105,8 +105,7 @@ class Font:
     def createFontFromBytes(cls, file: io.BytesIO, path: str = '', index: int = 0) -> Self | None:
         """从指定的字节流读取字体数据并创建实例，读取错误则返回None"""
         try:
-            font = cls(path, index, openNow=False)
-            font.isInMemory = True   # 标记它是内存字体，即字幕内嵌字体
+            font = cls(path, index, inMemory=True, openNow=False)
             font._byteStream = file  # 保存字节流，用于未来打开字体
             with TTFont(file) as ttf_font:
                 font._readInfo(ttf_font)
@@ -121,7 +120,7 @@ class Font:
 
     def open(self) -> TTFont:
         """打开字体，返回TTFont"""
-        if self.isInMemory:
+        if self.inMemory:
             self._byteStream.seek(0)
             return TTFont(self._byteStream)
         if not os.access(self.path, os.R_OK):
@@ -162,9 +161,8 @@ class Font:
                     for name_id in name_ids:
                         name_record = next((record for record in name_list if record.nameID == name_id
                                             and self.decodeNameRecord(record).lower() == name), None)
-                        if name_record:
+                        if name_record: # 把相同的名字记录保存下来
                             name_records.append(name_record)
-                            break
 
             # 子集化 ---------
             if 'ignore_missing_glyphs' not in kwargs:
@@ -180,9 +178,9 @@ class Font:
                     for record in name_list:
                         if (record.nameID == name_record.nameID and record.platformID == name_record.platformID
                                 and record.langID == name_record.langID and record.string == name_record.string):
-                            break  # 如果没删掉，那就不用加了
-                    else:  # 如果删掉了，加回来
-                        ttf_font['name'].names.append(name_record)
+                            break  # 如果名字没删掉，那就不用加了
+                    else:  # 如果名字删掉了，加回来
+                        name_list.append(name_record)
 
             out_stream = io.BytesIO()
             ttf_font.save(out_stream)  # 保存到内存字节流
@@ -190,13 +188,13 @@ class Font:
         if self._byteStream:
             self._byteStream.close()
         self._byteStream = out_stream
-        self.isInMemory = True  # 子集化后字体自动变内存字体
+        self.inMemory = True  # 子集化后字体自动变内存字体
 
     def save(self, path: str):
         """保存字体到路径"""
         if not os.access(os.path.dirname(path), os.W_OK):
             raise Exception(Lang['Unable to write file {p}.'].format(p=path))
-        if self.isInMemory:
+        if self.inMemory:
             self._byteStream.seek(0)
             with open(path, 'wb') as file:
                 file.write(self._byteStream.read())

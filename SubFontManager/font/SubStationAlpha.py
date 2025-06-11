@@ -17,6 +17,7 @@ class SubFontDesc:
     italic: bool    # 字体是否是斜体
     isEmbed: bool = False   # 当前字体对象是否是内嵌字体
     font: Font | None = None    # 字体对象，可能为None
+    valid: bool = True  # 字体是否有效，通常指内嵌字体
 
 
 class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
@@ -26,7 +27,8 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
         super().__init__()
         self.fontMgr = fontMgr
 
-    def addTextToFont(self, fontName: str, bold: str | bool, italic: str | bool, text: str = '', font: Font = None):
+    def addTextToFont(self, fontName: str, bold: str | bool, italic: str | bool, text: str = '',
+                      font: Font = None, valid: bool = True):
         """向字典中加入字体并合并覆盖的文字"""
         bold = bool(int(bold))  # 非0都判断为真，如1、-1、2等
         italic = bool(int(italic))
@@ -38,8 +40,8 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
         else:   # 新字体，搜索文件源，注意搜索结果可能为None
             if font is None:
                 font = self.fontMgr.match(fontName, bold, italic)
-            is_embed = bool(font and font.isInMemory)
-            self[key] = SubFontDesc(fontName, chars, bold, italic, is_embed, font)
+            is_embed = bool(font and font.inMemory)
+            self[key] = SubFontDesc(fontName, chars, bold, italic, is_embed, font, valid)
 
 
 class SubStationAlpha:
@@ -64,20 +66,15 @@ class SubStationAlpha:
         self.sectionsInOrder: list[SectionLines] = []   # 保存各个SectonLines并记录它们的顺序，以便重建文件时不会搞混
         self._load(path, encoding)  # 载入文件
         self.fontMgr = FontManager(embedFonts=self.fontDict, path=os.path.dirname(self.filePath))  # 管理内嵌字体
-        self.ignoredFonts: list[str] = []   # 内嵌字体中的无效项
+        self.invalidFonts: list[Font] = []   # 内嵌字体中的无效项
 
         # 检查内嵌字体中是否有无效的项，将无效项从fontDict转移到ignoredFonts ---------
         valid_fonts = [(f.path, f.index) for f in self.fontMgr.getAll(FontManager.EMBED)]
         if len(valid_fonts) < len(self.fontDict):  # 如果有效字体的数量少了，说明有无效的内嵌字体
             for font_name, font_codes in list(self.fontDict.items()):
                 for i in range(len(font_codes)):
-                    if (font_name, i) not in valid_fonts:
-                        if len(font_codes) == 1:
-                            self.ignoredFonts.append(font_name)
-                            self.fontDict.pop(font_name)
-                        else:
-                            self.ignoredFonts.append(f"{font_name}#{i+1}")
-                            font_codes.pop(i)
+                    if (font_name, i) not in valid_fonts:   # 创建一个空Font对象代表无效字体
+                        self.invalidFonts.append(Font(font_name, i, True, False))
 
     @classmethod
     def load(cls, path: str, encoding: str = None) -> Self:
@@ -181,8 +178,8 @@ class SubStationAlpha:
             bold = self.styleDict.get(style_name, 'bold')       # 是否粗体，如"0"
             italic = self.styleDict.get(style_name, 'italic')   # 是否斜体，如"1"
             # 查找行内样式{} ---------
-            text = self.dialogueList.get(i, 'text')  # 对白文本部分，里面可能还有{}内联样式
-            match_iter = self._inlineStyle_ptn.finditer(text)  # {}正则匹配
+            text = self.dialogueList.get(i, 'text') # 对白文本部分，里面可能还有{}内联样式
+            match_iter = self._inlineStyle_ptn.finditer(text)   # {}正则匹配
             pos = 0    # 字符位置指针
             for m_obj in match_iter:    # 遍历每一个{}中的内容
                 # 将{}之前的文字都划归给上一种样式
@@ -205,9 +202,13 @@ class SubStationAlpha:
             fontDescDict.addTextToFont(fontname, bold, italic, text[pos:])
 
         # 查找未被引用的内嵌字体 ---------
-        all_fonts = [font_desc.font for font_desc in fontDescDict.values() if font_desc.font]   # 所有找到的字体
+        all_fonts = set(font_desc.font for font_desc in fontDescDict.values() if font_desc.font)    # 所有找到的字体
         for font in self.fontMgr.getAll(FontManager.EMBED):  # 所有内嵌字体
             if font not in all_fonts:   # 未被引用的内嵌字体，但仍然应该显示在界面列表中
                 fontDescDict.addTextToFont(font.path, font.isBold, font.isItalic, '', font)
+
+        # 加入无效字体，将它们也显示在界面列表中 ---------
+        for font in self.invalidFonts:
+            fontDescDict.addTextToFont(font.path, False, False, '', font, False)
 
         return list(fontDescDict.values())

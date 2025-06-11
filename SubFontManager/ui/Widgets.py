@@ -33,16 +33,20 @@ class Label(tk.Label, StyledWidget):
     """标签类，以统一的接口更改背景色"""
 
     def __init__(self, master: tk.Misc, **kwargs):
+        overstrike = kwargs.pop('overstrike', False)
         kwargs['bg'] = kwargs.get('bg', self.bg)
         super().__init__(master, **kwargs)
+        self.font = StyledWidget.defaultFont.copy()
+        if overstrike:
+            self.font.configure(overstrike=overstrike)
+            self.configure(font=self.font)
 
     def setBackground(self, color: str = StyledWidget.bg):
         self.configure(background=color)
 
     def setBold(self, bold: bool = True):
-        new_font = self.defaultFont.copy()
-        new_font.configure(weight=tkfont.BOLD if bold else tkfont.NORMAL)
-        tk.Label.configure(self, font=new_font)
+        self.font.configure(weight=tkfont.BOLD if bold else tkfont.NORMAL)
+        self.configure(font=self.font)
 
 
 class Checkbox(ttk.Checkbutton, tk.Checkbutton, StyledWidget):

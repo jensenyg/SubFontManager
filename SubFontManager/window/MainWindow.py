@@ -162,9 +162,6 @@ class MainWindow:
             self.fontList.clearRows()   # 清除可能已经载入的部分行
             self.statusBar.set(Lang["Open failed."], duration=3)    # 设置状态栏文字
         else:   # 载入成功
-            if subtitleObj.ignoredFonts:    # 检查是否有忽略的内嵌字体并弹窗提示
-                messagebox.showerror(Lang['Warning'], Lang['Embedded fonts {ff} file error, ignored.']
-                                                      .format(ff=f'"{'", "'.join(subtitleObj.ignoredFonts)}"'))
             self.applyBtn.configure(state=tk.NORMAL)    # 解开"应用"按钮禁用
             if self.loadBtn.cget('text') != Lang['Reload']: # 设置"载入"按钮为"重新载入"
                 self.loadBtn.configure(text=Lang['Reload'], state=tk.NORMAL)
