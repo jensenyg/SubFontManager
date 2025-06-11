@@ -55,7 +55,7 @@ const wstring FontMatch3::GetMatchingFont(unordered_map<FONT_PROPERTY, wstring>&
     // 进行严格筛选 ------
     ComPtr<IDWriteFontSet> fontSet; // 筛选结果集合
     if (fontProps.empty()
-        || FAILED(this->systemFontSet->GetMatchingFonts(fontProps.data(), fontProps.size(), &fontSet))
+        || FAILED(this->systemFontSet->GetMatchingFonts(fontProps.data(), (UINT32)fontProps.size(), &fontSet))
         || fontSet->GetFontCount() == 0)    // 这个重载版本的GetMatchingFonts只能按照各种名字筛选，不能筛选weight和style
         return wstring();
 

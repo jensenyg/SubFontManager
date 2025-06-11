@@ -24,6 +24,7 @@ class Font:
     def __init__(self, path: str, index: int = 0, openNow: bool = True):
         self.path: str = path   # 字体文件路径，内存字体则此值随意指定
         self.index: int = index # 字体在路径内的编号
+        self.inTTC: bool = os.path.splitext(path)[1].lower().endswith('.ttc')   # 字体是否在TTC文件内
         self.postscriptName: str = ''       # Postscript名，是字体的唯一标识
         self.familyNames: set[str] = set()  # 字体家族名，包括各种语言的版本
         self.fullNames: set[str] = set()    # 字体全名，包括各种语言的版本
@@ -125,17 +126,22 @@ class Font:
             return TTFont(self._byteStream)
         if not os.access(self.path, os.R_OK):
             raise Exception(Lang['Unable to read file {p}.'].format(p=self.path))
-        if os.path.splitext(self.path)[1].lower().endswith('.ttc'):
+        if self.inTTC:
             return TTCollection(self.path, lazy=True)[self.index]   # lazy模式，只打开访问过的TTFont
         else:  # ttf、otf
             return TTFont(self.path)
 
     def read(self, size: int = None) -> bytes:
-        """以二进制方式读取字体数据，不建议对非内嵌字体执行"""
-        if self._byteStream:
+        """以二进制方式读取字体数据"""
+        if self._byteStream:    # 内存字体，返回内存数据
             self._byteStream.seek(0)
             return self._byteStream.read(size)
-        else:
+        elif self.inTTC:    # 来自TTC文件，从里面提取TTF
+            with self.open() as ttf_font:
+                buffer = io.BytesIO()
+                ttf_font.save(buffer)
+                return buffer.getvalue()
+        else:   # 来自TTF文件，直接读源文件数据
             with open(self.path, 'rb') as file:
                 return file.read()
 

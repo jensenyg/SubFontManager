@@ -276,7 +276,7 @@ class FontList(ui.WidgetTable):
                 if not font.isInMemory: # 外部文件字体源
                     # 生成一个不重复的内嵌字体名 -------
                     file_name = os.path.splitext(os.path.split(font.path)[1])[0]    # 拆解出无后缀文件名
-                    if not file_name.endswith('_subset'):   # 如果不是_subset结尾，加一个_subset
+                    if row_item.subset.get() and not file_name.endswith('_subset'): # 如果不是_subset结尾，加一个_subset
                         file_name += '_subset'
                     i = 2
                     embed_name = file_name

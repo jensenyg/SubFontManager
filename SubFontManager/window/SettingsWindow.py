@@ -1,10 +1,8 @@
 import os
-import sys
 import webbrowser
 import tkinter as tk
 from tkinter import ttk, messagebox
-import __version__
-from utils import App, Lang
+from utils import Version, App, Lang
 import ui
 
 
@@ -25,12 +23,12 @@ class SettingsWindow(ui.PopupWindow):
         height += text.winfo_reqheight() + gap
 
         # 添加程序名
-        text = tk.Label(self, text=__version__.name, font=('Arial', 20, tk.font.BOLD))
+        text = tk.Label(self, text=Version.__appname__, font=('Arial', 20, tk.font.BOLD))
         text.pack(side=tk.TOP, padx=gap, pady=(0, gap))
         height += text.winfo_reqheight() + gap
 
         # 添加版本号和作者名
-        tk.Label(self, text='Version ' + __version__.version).pack(side=tk.TOP, padx=gap)
+        tk.Label(self, text='Version ' + Version.__version__).pack(side=tk.TOP, padx=gap)
         text = tk.Label(self, text='Developed by Jensen')
         text.pack(side=tk.TOP, padx=gap)
         height += text.winfo_reqheight()
@@ -39,18 +37,18 @@ class SettingsWindow(ui.PopupWindow):
         email_frame = tk.Frame(self)
         email_frame.pack(side=tk.TOP, padx=gap)
         tk.Label(email_frame, text='Email:').pack(side=tk.LEFT)
-        email_label = tk.Label(email_frame, text=__version__.email, fg="blue")
+        email_label = tk.Label(email_frame, text=Version.__email__, fg="blue")
         email_label.pack(side=tk.LEFT)
-        email_label.bind("<Button-1>", lambda e: webbrowser.open_new('mailto:' + __version__.email))
+        email_label.bind("<Button-1>", lambda e: webbrowser.open_new('mailto:' + Version.__email__))
         height += text.winfo_reqheight()
 
         # 添加Github
         github_frame = tk.Frame(self)
         github_frame.pack(side=tk.TOP, padx=gap)
         tk.Label(github_frame, text='GitHub:').pack(side=tk.LEFT)
-        github_label = tk.Label(github_frame, text=__version__.github, fg="blue")
+        github_label = tk.Label(github_frame, text=Version.__homepage__, fg="blue")
         github_label.pack(side=tk.LEFT)
-        github_label.bind("<Button-1>", lambda e: webbrowser.open_new(__version__.github))
+        github_label.bind("<Button-1>", lambda e: webbrowser.open_new(Version.__homepage__))
         height += text.winfo_reqheight()
 
         # 添加语言选择组合框

@@ -145,23 +145,29 @@ class FontDict(dict[str, list[str]], SectionLines):
     def __init__(self):
         super().__init__()
         SectionLines.__init__(self, '[Fonts]', continuous=True)
-        self.currentFontname = None  # 当前正在插入数据的字体名
+        self._currentFontname = None    # 当前正在插入数据的字体名
+        self._currentFontLines = []     # 当前正在插入数据的行列表，用于提高字符串拼接效率
 
     def append(self, lineStr: str) -> bool:
         """加入行，每个字体以fontname行起始，下一个fontname行或空行结束"""
         if not lineStr:   # 空行，进入下一字体或下一Section
-            self.currentFontname = None
+            self._switchFont(None)
             return False
         if lineStr.startswith(self.FONTNAME_PREFIX):    # 字体名行，UUEncoding中不会出现小写字母，所以fontname可以用于判断新字体
-            self.currentFontname = lineStr[len(self.FONTNAME_PREFIX):].strip()
-            if self.currentFontname in self:
-                self[self.currentFontname].append('')   # 空字串为初值，方便后期+=
-            else:
-                self[self.currentFontname] = ['']
-        elif self.currentFontname:    # 字体数据行
-            self[self.currentFontname][-1] += lineStr   # 合并多行内嵌字体
+            self._switchFont(lineStr[len(self.FONTNAME_PREFIX):].strip())
+        elif self._currentFontname:    # 字体数据行
+            self._currentFontLines.append(lineStr)  # 暂存行内容到列表，待全部加入之后再join，以提高字符串拼接效率
         # else:   # 没有当前字体名，也不是字体名行，那是无效行
         return True    # 下一个必须还是本Section，直到出现空行为止
+
+    def _switchFont(self, fontName: str | None) -> None:
+        """切换字体文件，将上一个文件的数据字串全部拼接成一行"""
+        if self._currentFontname:
+            if self._currentFontname not in self:
+                self[self._currentFontname] = []
+            self[self._currentFontname].append(''.join(self._currentFontLines)) # 合并多行内嵌字体
+        self._currentFontname = fontName
+        self._currentFontLines = []
 
     def add(self, fontBytes: bytes, fontName: str, index: int = 0, overwrite: bool = False) -> int:
         """

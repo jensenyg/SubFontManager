@@ -58,8 +58,8 @@ class MainWindow:
         fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
         fontlist_frame.grid(row=1, padx=padding, sticky=tk.EW)
         ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=padding)
-        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=6*App.dpiScale, state=tk.DISABLED,
-                                 command=self.onLoadBtn)
+        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=(6 if App.isMac else 7)*App.dpiScale,
+                                 state=tk.DISABLED, command=self.onLoadBtn)
         self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
         self.fontList = FontList(root)    # 字体列表
@@ -71,10 +71,10 @@ class MainWindow:
         self.statusBar = ui.StatusBar(bottom_frame)
         self.statusBar.pack(side=tk.LEFT, padx=(0, padding), fill=tk.X, expand=True)
 
-        ui.Button(bottom_frame, text=Lang['Close'], width=5*App.dpiScale, command=root.destroy) \
+        ui.Button(bottom_frame, text=Lang['Close'], width=(5 if App.isMac else 7)*App.dpiScale, command=root.destroy)\
             .pack(side=tk.RIGHT, padx=padding)
-        self.applyBtn = ui.Button(bottom_frame, text=Lang['Apply'], width=5*App.dpiScale, state=tk.DISABLED,
-                                  command=self.onApplyBtn)
+        self.applyBtn = ui.Button(bottom_frame, text=Lang['Apply'], width=(5 if App.isMac else 7)*App.dpiScale,
+                                  state=tk.DISABLED, command=self.onApplyBtn)
         self.applyBtn.pack(side=tk.RIGHT, padx=padding)
         config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showSettings)
         config_btn.pack(side=tk.RIGHT, padx=padding)
@@ -116,7 +116,10 @@ class MainWindow:
 
     def onDrop(self, event):
         """拖放文件响应"""
-        file_path = os.path.normpath(event.data.strip('{}'))    # 去掉两边的{}并转换为OS习惯格式（用\还是/）
+        file_paths = self.root.tk.splitlist(event.data) # 切分多个路径并去掉两边的{}
+        if not file_paths:
+            return
+        file_path = os.path.normpath(file_paths[0]) # 转换为OS习惯格式（用\还是/）
         if file_path.endswith(('.ass', '.ssa')):
             self.srcEntry.delete(0, tk.END)
             self.srcEntry.insert(0, file_path)

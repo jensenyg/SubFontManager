@@ -40,7 +40,7 @@ const char* GetMatchingFont(const char* json_str, bool strict) {
         json = nlohmann::json::parse(json_str);
     }
     catch (...) {
-        throw "Failed to parse JSON.";
+        return nullptr;
     }
 
     // UTF-8转换器，.from_bytes()：UTF-8转wstring，.to_bytes()：wstring转UTF-8

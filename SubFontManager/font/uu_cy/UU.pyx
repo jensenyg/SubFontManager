@@ -9,7 +9,7 @@ cpdef Encode(binArr: bytes | bytearray):
     """UUEncoding编码，输入bytes返回str"""
     length = len(binArr)
     cdef unsigned char* buffer = <unsigned char*>malloc(<int>(length * 4 / 3 + 2))
-    _encode(<unsigned char*>binArr, length, buffer)
+    _encode(<const unsigned char*>binArr, length, buffer)
     code: str = buffer.decode('ascii')   # 转换为Python str，因为合法的编码只包含英文和符号，所以可以用ascii编码
     free(buffer)
     return code
@@ -18,7 +18,7 @@ cpdef Decode(codeStr: str):
     """UUEncoding解码，输入str返回bytes"""
     cdef unsigned char* buffer = <unsigned char*> malloc(<int>(len(codeStr) * 3 / 4 + 1))
     _bytes = codeStr.encode('ascii')
-    bin_length = _decode(<unsigned char*>_bytes, len(_bytes), buffer)
+    bin_length = _decode(<const unsigned char*>_bytes, len(_bytes), buffer)
     binArr: bytes = buffer[:bin_length]    # 转换为Python bytes
     free(buffer)
     return binArr

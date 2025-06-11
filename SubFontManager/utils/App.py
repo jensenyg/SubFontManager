@@ -1,7 +1,7 @@
 import os
 import sys
 import ctypes
-from __version__ import name as appname
+from . import version
 from .ConfigParserWraper import ConfigParserWraper
 
 
@@ -16,7 +16,7 @@ class App:
     isMac = platform == MACOS
     isWindows = platform == WINDOWS
     isLinux = platform == LINUX
-    name = appname   # 本程序的名称
+    name = version.__appname__  # 本程序的名称
     shortName = name.replace(' ', '')   # 去掉空格的名称，用来做目录名
     dirName, exeName = os.path.split(sys.argv[0])   # 程序文件的路径和名称
     isInDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
