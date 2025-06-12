@@ -1,11 +1,10 @@
 import sys
 import subprocess
-from SubFontManager.utils import App
 
 python = sys.executable # 当前运行的Python路径
 
 # Windows下，编译fontmatch.dll文件
-if App.isWindows:
+if sys.platform == 'win32':
     print('\nCompiling fontmatch.dll...')
     subprocess.run(['powershell', '-ExecutionPolicy', 'Bypass',
                     '-File', '.\\fontmatch_dll\\build.ps1'])

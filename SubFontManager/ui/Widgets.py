@@ -4,7 +4,7 @@ from utils import App
 
 
 class StyledWidget:
-    """统一样式基类，继承此类的控件可以调用同样的样式风格"""
+    """统一样式基类，继承此类的控件可以调用同样的样式风格，用于让字体表内的所有控件背景色统一"""
     bg = 'white'    # 全局背景色
     style = None
     defaultFont = None
@@ -20,7 +20,8 @@ class StyledWidget:
 
 
 class Button(ttk.Button):
-    """按钮类，为了让width和height参数可以自动适应多种类型"""
+    """按钮类，为了让width和height参数可以自动适应多种数据类型"""
+
     def __init__(self, master: tk.Misc, **kwargs):
         if 'width' in kwargs:
             kwargs['width'] = int(kwargs['width'])
@@ -85,14 +86,14 @@ class Entry(ttk.Entry, StyledWidget):
 
     def __init__(self, master: tk.Misc = None, placeholder: str = '', *args, **kwargs):
         super().__init__(master, *args, **kwargs)
-        self._isblank = True
-        self.focusIn = False
+        self._isblank = True    # 框内是否为空，占位符不算
+        self._focusIn = False   # 是否拥有焦点
         self._init(placeholder)
 
     def _init(self, placeholder):
         self.placeholder = placeholder
-        self.placeholder_color = 'darkgray'
-        self.default_fg_color = self['foreground']
+        self.placeholderColor = 'darkgray'
+        self.defaultFgColor = self['foreground']
         self.bind('<FocusIn>', self.onFocusIn)
         self.bind('<FocusOut>', self.onFocusOut)
         if self.placeholder:
@@ -101,36 +102,42 @@ class Entry(ttk.Entry, StyledWidget):
     def setStyle(self, nomal: bool):
         new_font = self.defaultFont.copy()
         if nomal:
-            self['foreground'] = self.default_fg_color
+            self['foreground'] = self.defaultFgColor
             new_font.configure(slant=tkfont.ROMAN)
         else:
-            self['foreground'] = self.placeholder_color
+            self['foreground'] = self.placeholderColor
             new_font.configure(slant=tkfont.ITALIC)    # 中文斜体需要字体支持，可能无法显示
         self.configure(font=new_font)
 
     def get(self):
+        """获取框内内容，占位符不算"""
         return '' if self._isblank else super().get()
 
     def getRaw(self):
+        """获取框内原始内容，包括占位符"""
         return super().get()
 
     @property
-    def isblank(self):
+    def isBlank(self):
+        """框内是否为空，占位符不算"""
         return self._isblank
 
     def insert(self, index, string):
+        """插入文字"""
         self.setStyle(True)
         super().insert(index, string)
         self._isblank = super().get() == ''
 
     def onFocusIn(self, event=None):
-        self.focusIn = True
+        """焦点进入事件响应"""
+        self._focusIn = True
         if self._isblank:
             self.delete(0, tk.END)
             self.setStyle(True)
 
     def onFocusOut(self, event=None):
-        self.focusIn = False
+        """焦点离开事件响应"""
+        self._focusIn = False
         self._isblank = super().get() == ''
         if self._isblank:
             self.setStyle(False)
@@ -148,29 +155,33 @@ class Combobox(ttk.Combobox, Entry):
     def __init__(self, master: tk.Misc = None, placeholder: str = '', *args, **kwargs):
         variable = kwargs.get('textvariable')
         super().__init__(master, *args, **kwargs)
-
-        self._isblank = True
+        # 初始化占位符输入框属性
+        self._isblank = True    # 框内是否为空，占位符不算
+        self._focusIn = False   # 是否拥有焦点
+        self._init(placeholder)
         # 保存初始值和通过set设置的当前值，以便在被下拉菜单自动改写后可以回填
         self.currentValue = variable.get() if variable else ''
-        self._init(placeholder)
         # 禁用鼠标滚轮响应
         self.bind('<MouseWheel>', self.onMouseWheel)
         self.bind('<Button-4>', self.onMouseWheel)  # For Linux systems
         self.bind('<Button-5>', self.onMouseWheel)  # For Linux systems
 
     def set(self, string):
+        """设置框内文字"""
         self._isblank = string == ''
         self.setStyle(not self._isblank)
         super().set(self.placeholder if self._isblank else string)
         self.currentValue = self.get()
 
     @property
-    def isblank(self):
-        if self.focusIn:
+    def isBlank(self):
+        """框内是否为空，占位符不算"""
+        if self._focusIn:
             self._isblank = ttk.Combobox.get(self) == ''
         return self._isblank
 
     def onMouseWheel(self, event):
+        """鼠标滚应事件响应"""
         # 让事件跳过本控件，直接传给父控件，即不滚动下拉菜单，直接滚动整个列表
         self.master.event_generate('<MouseWheel>', delta=event.delta)
         # 返回break可以阻止事件进一步传播

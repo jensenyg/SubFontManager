@@ -6,54 +6,8 @@ from .ToolTip import ToolTip
 from .Widgets import StyledWidget
 
 
-class WidgetCell:
-    """单元格类，可以基于Label, Checkbox, Combobox等不同类型"""
-
-    def __init__(self, widget: tk.Widget,
-                 padx: int | tuple[int, int] = 0, pady: int | tuple[int, int] = 0, columnSpan: int = 1):
-        """
-        :param widget: 控件
-        :param padx: 两侧的空隙宽度
-        :param pady: 上下的空隙高度
-        :param columnSpan: 该单元格横跨几个列，默认为1
-        """
-        self.widget = widget
-        if not isinstance(padx, tuple):
-            padx = (padx, padx)
-        if not isinstance(pady, tuple):
-            pady = (pady, pady)
-        self.padx = (padx[0] * App.dpiScale, padx[1] * App.dpiScale)
-        self.pady = (pady[0] * App.dpiScale, pady[1] * App.dpiScale)
-        self.columnSpan = columnSpan
-
-
-class WidgetRow(tk.Frame):
-    """列表行类，继承自Frame，提供高亮功能，同时辅助WidgetTable.addRow函数进行类型检查"""
-    HIGHLIGHT_COLOR = 'lightskyblue'  # 高亮背景色
-
-    def __init__(self, *args, isSep: bool = False, **kwargs):
-        """
-        :param isSep: 是否是分隔行
-        """
-        kwargs['bg'] = StyledWidget.bg
-        super().__init__(*args, **kwargs)
-        self.cells = []
-        self.data = None    # 可以由外部赋值的任意数据
-        self.isSep = isSep
-
-    def addCell(self, widget: tk.Widget, padx=0, pady=0, columnSpan: int = 1):
-        self.cells.append(WidgetCell(widget, padx, pady, columnSpan))
-
-    def setHighLight(self, highlight: bool = True):
-        color = self.HIGHLIGHT_COLOR if highlight else StyledWidget.bg
-        self.configure(bg=color)
-        for cell in self.cells:
-            cell.widget.setBackground(color)
-
-
 class Header(tk.Frame):
     """列标题类"""
-
     AdjusterWidth = 2   # 列宽调节器宽度
 
     def __init__(self, master, label: str, toolTip: str = None, **kwargs):
@@ -122,6 +76,51 @@ class Header(tk.Frame):
         # 按照实际移动的距离修正基础坐标，因为列可能已经无法调整宽度了，这种机制可以让调节器移动时不会和鼠标错位
         self._cursorX += self.onAdjust(event)
         self._cursorY = event.y_root
+
+
+class WidgetCell:
+    """单元格类，可以基于Label, Checkbox, Combobox等不同类型"""
+
+    def __init__(self, widget: tk.Widget, padx: int | tuple[int, int] = 0,
+                 pady: int | tuple[int, int] = 0, columnSpan: int = 1):
+        """
+        :param widget: 控件
+        :param padx: 两侧的空隙宽度
+        :param pady: 上下的空隙高度
+        :param columnSpan: 该单元格横跨几个列，默认为1
+        """
+        self.widget = widget
+        if not isinstance(padx, tuple):
+            padx = (padx, padx)
+        if not isinstance(pady, tuple):
+            pady = (pady, pady)
+        self.padx = (padx[0] * App.dpiScale, padx[1] * App.dpiScale)
+        self.pady = (pady[0] * App.dpiScale, pady[1] * App.dpiScale)
+        self.columnSpan = columnSpan
+
+
+class WidgetRow(tk.Frame):
+    """列表行类，继承自Frame，提供高亮功能，同时辅助WidgetTable.addRow函数进行类型检查"""
+    HIGHLIGHT_COLOR = 'lightskyblue'  # 高亮背景色
+
+    def __init__(self, *args, isSep: bool = False, **kwargs):
+        """
+        :param isSep: 是否是分隔行
+        """
+        kwargs['bg'] = StyledWidget.bg
+        super().__init__(*args, **kwargs)
+        self.cells = []
+        self.data = None    # 可以由外部赋值的任意数据，一般是RowItem
+        self.isSep = isSep
+
+    def addCell(self, widget: tk.Widget, padx=0, pady=0, columnSpan: int = 1):
+        self.cells.append(WidgetCell(widget, padx, pady, columnSpan))
+
+    def setHighLight(self, highlight: bool = True):
+        color = self.HIGHLIGHT_COLOR if highlight else StyledWidget.bg
+        self.configure(bg=color)
+        for cell in self.cells:
+            cell.widget.setBackground(color)
 
 
 class WidgetTable(tk.Frame):
@@ -222,12 +221,16 @@ class WidgetTable(tk.Frame):
         if not isinstance(row, WidgetRow):
             raise TypeError('Only WidgetRow type (created by newRow() method) is accepted.')
 
-        for cell in row.cells:
-            cell.widget.pack(side=tk.LEFT, pady=cell.pady, anchor=tk.W)
-            # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
-            self._bindCallbackToFirst(cell.widget, '<Button-1>', self.onRowSelect)
+        if row.cells:
+            # 必须先将cell都pack到row并刷新，才可以让row获得最大尺寸，但cell最终是靠place布局的，这会导致界面闪烁。
+            # 这里先只加入第一个cell，它的pack位置和place位置一样，可以减少错位闪烁，但要求其他cell不能比它高。
+            row.cells[0].widget.pack(side=tk.LEFT, padx=row.cells[0].padx, pady=row.cells[0].pady, anchor=tk.W)
+            for cell in row.cells:
+                # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
+                self._bindCallbackToFirst(cell.widget, '<Button-1>', self.onRowSelect)
+
         row.pack(fill=tk.X, expand=True)
-        # 为行对象本身绑定激活事件，因为控件周围可能会有空隙
+        # 为行对象本身也绑定激活事件，因为控件周围可能会有空隙
         self._bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
 
         self._rows.append(row)
@@ -261,7 +264,7 @@ class WidgetTable(tk.Frame):
         if lineLength:  # 绘制分隔线
             lineLength *= App.dpiScale
             center_y = text_height / 2 + pady[0]
-            canvas.create_line(5 * App.dpiScale, center_y, indent, center_y, fill="darkgray")  # 绘制左侧线
+            canvas.create_line(5 * App.dpiScale, center_y, indent - 2, center_y, fill="darkgray")  # 绘制左侧线
             canvas.create_line(x1 + padx[1], center_y, lineLength, center_y, fill="darkgray")  # 绘制右侧线
         canvas.pack(fill=tk.X, expand=True)
         sep_row.pack(fill=tk.X, expand=True)
@@ -363,19 +366,19 @@ class WidgetTable(tk.Frame):
         # 设置列元素宽度 -------
         for row_cells in self._cells:   # 遍历每一行
             xOffset = 0
-            ci = 0  # 当前列号
+            column_index = 0  # 当前列号
             for cell in row_cells:  # 遍历每个单元格
-                width = sum(h.width for h in self._headers[ci: ci + cell.columnSpan])   # 列宽
-                ci += cell.columnSpan
-                h = cell.widget.master.winfo_height()
+                width = sum(h.width for h in self._headers[column_index: column_index + cell.columnSpan]) # 列宽
+                height = cell.widget.master.winfo_height()
                 cell.widget.place(
                     x=xOffset + cell.padx[0],
-                    y=h * 0.5 + cell.pady[0] - cell.pady[1],
+                    y=height * 0.5 + cell.pady[0] - cell.pady[1],   # 以垂直方向中线为起始
                     width=width - cell.padx[0] - cell.padx[1],
-                    height=h - cell.pady[0] - cell.pady[1] - 2, # 减去2px，切掉组合框上下各1px，主要为了mac下的效果
-                    anchor=tk.W
+                    height=height - cell.pady[0] - cell.pady[1] - 2, # 减去2px，切掉组合框上下各1px，主要为了mac下的效果
+                    anchor=tk.W # 靠左且垂直居中
                 )
                 xOffset += width
+                column_index += cell.columnSpan
 
         self._suspendedResizing = False # 标记挂起的重绘已完成
 

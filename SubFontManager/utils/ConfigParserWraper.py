@@ -4,6 +4,7 @@ import configparser
 
 class ConfigParserWraper:
     """用来方便读写ini文件的类"""
+
     def __init__(self, path: str = None):
         self.path = path
         self.parser = configparser.ConfigParser()

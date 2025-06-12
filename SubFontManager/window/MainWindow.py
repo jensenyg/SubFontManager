@@ -63,7 +63,7 @@ class MainWindow:
 
         # 底部的状态栏和应用关闭按钮区 --------------
         bottom_frame = ttk.Frame(root)
-        bottom_frame.grid(row=3, padx=2*padding, pady=(0.5*padding, 2*padding), sticky=tk.EW)
+        bottom_frame.grid(row=3, padx=2*padding, pady=(0 if App.isMac else 0.5*padding, 2*padding), sticky=tk.EW)
         # 状态栏
         self.statusBar = ui.StatusBar(bottom_frame)
         self.statusBar.pack(side=tk.LEFT, padx=(0, padding), fill=tk.X, expand=True)
@@ -179,7 +179,7 @@ class MainWindow:
             self.applyBtn.focus_force()  # 弹窗后，需手动取回焦点
             self.statusBar.set(Lang["Execution failed."], duration=3)
         else:   # 嵌入成功
-            if not self.dstEntry.isblank:   # 如果另存框里有内容，打开另存路径的文件
+            if not self.dstEntry.isBlank:   # 如果另存框里有内容，打开另存路径的文件
                 self.srcEntry.delete(0, tk.END)
                 self.srcEntry.insert(0, self.dstEntry.get())    # 则将内容拷贝到输入框
                 self.dstEntry.delete(0, tk.END) # 删除输出框中的内容

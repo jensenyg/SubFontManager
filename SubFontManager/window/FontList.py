@@ -78,7 +78,7 @@ class FontList(ui.WidgetTable):
         self.subtitleObj: SubStationAlpha | None = None
 
         # 内嵌列
-        self.addColumn(Lang['Embed'], width=45, sortKey=lambda r: r.data.embed.get())
+        self.addColumn(Lang['Emb'], width=40, sortKey=lambda r: r.data.embed.get(), toolTip=Lang['Embedding'])
         # 字体名列
         weight = float(App.Config.get('General', 'font_column_weight', 1))
         self.addColumn(Lang['Font'], weight=weight, sortKey=lambda r: r.data.fontName,
@@ -88,9 +88,9 @@ class FontList(ui.WidgetTable):
         # 字数列
         width = int(App.Config.get('General', 'count_column_width', 55))
         self.addColumn(Lang['Count'], width=width, sortKey=lambda r: len(r.data.text),
-                       minWidth=45, adjuster=tk.RIGHT, toolTip=Lang['Non-repeating characters count'])
+                       minWidth=50, adjuster=tk.RIGHT, toolTip=Lang['Non-repeating characters count'])
         # 子集化列
-        self.addColumn(Lang['Subset'], width=45, sortKey=lambda r: r.data.subset.get(), toolTip=Lang['Subsetting'])
+        self.addColumn(Lang['Sub'], width=40, sortKey=lambda r: r.data.subset.get(), toolTip=Lang['Subsetting'])
         # 文件源列
         weight = float(App.Config.get('General', 'source_column_weight', 2))
         self.addColumn(Lang['File source'], weight=weight, sortKey=lambda r: r.data.sourceWidget.get(),
@@ -98,14 +98,12 @@ class FontList(ui.WidgetTable):
 
         self.bind("<Destroy>", self.onDestroy)  # 绑定关闭事件响应
 
-    def loadSubtitle(self, subObj: SubStationAlpha = None):
+    def loadSubtitle(self, subObj: SubStationAlpha):
         """载入字体文件并将其中的字体和信息添加到列表"""
         # 清空列表 -------
         self.subtitleObj = subObj
         if self._rows:
             self.clearRows()
-        if subObj is None:
-            return
 
         # 收集字幕中出现过的所有字体
         subFontDescs = self.subtitleObj.gatherFonts()
@@ -165,10 +163,10 @@ class FontList(ui.WidgetTable):
             # Checkbox：是否内嵌
             row_item.embedWidget = ui.Checkbox(row_frame, variable=row_item.embed, text='')
             row_item.embedWidget.bind("<Button-1>", lambda e, r=row_item: self.onEmbedClicked(r))
-            row_frame.addCell(row_item.embedWidget, padx=(14, 0))
-            # Label：字体名
-            row_item.fontNameWidget = ui.Label(row_frame, text=row_item.fontName, overstrike=not row_item.valid,
-                                               anchor=tk.W)
+            row_frame.addCell(row_item.embedWidget, padx=(8 if App.isMac else 11, 0))
+            # Label：字体名，无效字体加删除线和后缀，因为Mac下不支持文字删除线
+            row_item.fontNameWidget = ui.Label(row_frame, overstrike=not row_item.valid, anchor=tk.W,
+                text=row_item.fontName + (' (invalid)' if not row_item.valid else ''))
             row_frame.addCell(row_item.fontNameWidget, pady=(0, 1))
             # Label：样式名
             row_frame.addCell(ui.Label(row_frame, text=row_item.styleName, overstrike=not row_item.valid,
@@ -179,7 +177,7 @@ class FontList(ui.WidgetTable):
             row_item.subsetWidget = ui.Checkbox(row_frame, variable=row_item.subset,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED)
             row_item.subsetWidget.bind("<Button-1>", lambda e, r=row_item: self.onSubsetClicked(r))
-            row_frame.addCell(row_item.subsetWidget, padx=(14, 0))
+            row_frame.addCell(row_item.subsetWidget, padx=(8 if App.isMac else 11, 0))
             # Combobox：文件源
             row_item.sourceWidget = ui.Combobox(row_frame, placeholder=self.SrcCmbOptions.NOSRC, background=self.bg,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED,
@@ -236,7 +234,7 @@ class FontList(ui.WidgetTable):
             if row_item.font and file_path == row_item.font.path:   # 填写路径和现有路径相同
                 continue    # 路径已知，无需检查了
             if not os.path.isfile(file_path): # 路径不是文件
-                warnings.append(Lang["File {p} doesn't exist."].format(p=file_path))
+                warnings.append(Lang["File {p} does not exist."].format(p=file_path))
             elif not os.access(file_path, os.R_OK): # 路径不可访问
                 warnings.append(Lang["Unable to read file {p}."].format(p=file_path))
             else:   # 正常外部路径
@@ -353,7 +351,7 @@ class FontList(ui.WidgetTable):
     @classmethod
     def setRowStatus(cls, rowItem: RowItem):
         """根据当前行的填写情况设置行内各控件的状态"""
-        if rowItem.sourceWidget.isblank:
+        if rowItem.sourceWidget.isBlank:
             rowItem.embed.set(False)    # 文件源为空时强制取消内嵌勾选
             rowItem.embedWidget.configure(state=tk.DISABLED)    # 并禁用内嵌复选框
         else:

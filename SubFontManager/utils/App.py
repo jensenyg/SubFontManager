@@ -1,32 +1,30 @@
 import os
 import sys
-import ctypes
 from . import version
 from .ConfigParserWraper import ConfigParserWraper
 
 
 class App:
     """程序的基本信息"""
-    MACOS = 'macOS'
-    WINDOWS = 'windows'
-    LINUX = 'linux'
 
-    # 操作系统类型
-    platform = MACOS if sys.platform == 'darwin' else (WINDOWS if sys.platform == 'win32' else LINUX)
-    isMac = platform == MACOS
-    isWindows = platform == WINDOWS
-    isLinux = platform == LINUX
+    isMac = sys.platform == 'darwin'    # 当前是否macOS系统
+    isWindows = sys.platform == 'win32' # 当前是否Windows系统
     name = version.__appname__  # 本程序的名称
-    shortName = name.replace(' ', '')   # 去掉空格的名称，用来做目录名
     dirName, exeName = os.path.split(sys.argv[0])   # 程序文件的路径和名称
     isInDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
     dpiScale = 1.0    # DPI缩放比例
-    Config: ConfigParserWraper = None    # 程序配置对象，可读写配置
+
+    Config = ConfigParserWraper(    # 程序配置对象，可读写配置
+        os.path.join('.' if isInDev else
+                     (os.path.join(os.path.expanduser('~/Library/Application Support'), name)
+                      if isMac else sys._MEIPASS), 'config.ini')
+    )
 
     @classmethod
     def setDpiAwareness(cls):
         if not cls.isWindows:
             return
+        import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
         hwnd = ctypes.windll.user32.GetDesktopWindow()  # 创建用户默认窗口
         hdc = ctypes.windll.user32.GetDC(hwnd)  # 获取屏幕的物理DPI
@@ -36,28 +34,24 @@ class App:
 
     @classmethod
     def getResourcesDirectory(cls) -> str:
-        """获取操作系统中合适的程序数据路径，并加上本程序的名称作为目录名"""
-        if cls.isMac and not cls.isInDev:    # macOS and not in dev
+        """获取程序数据路径"""
+        if cls.isInDev:
+            path = '.'
+        elif cls.isMac:
             path = os.path.join(os.path.dirname(cls.dirName), 'Resources')
         else:
-            path = '.'
+            path = sys._MEIPASS
         return path
 
     @classmethod
     def getSystemDataDirectory(cls) -> str:
-        """获取操作系统中合适的程序数据路径，并加上本程序的名称作为目录名"""
+        """获取操作系统中合适的配置文件路径，并加上本程序的名称作为目录名"""
         if cls.isMac:    # macOS
-            path = os.path.join(os.path.expanduser('~/Library/Application Support'), App.shortName)
+            path = os.path.join(os.path.expanduser('~/Library/Application Support'), cls.name)
         elif cls.isWindows:  # Windows
-            path = os.path.join(os.getenv('APPDATA', ''), cls.shortName)
-        elif cls.isLinux:    # Linux
-            path = os.path.join(os.path.expanduser('~/.cachelocal/share'), cls.shortName)
+            path = os.path.join(os.getenv('APPDATA', ''), cls.name)
+        # elif cls.isLinux:    # Linux
+        #     path = os.path.join(os.path.expanduser('~/.cachelocal/share'), cls.name)
         else:   # 不识别的系统，无法支持
             path = ''
         return path
-
-
-# ini配置文件路径
-_ini_path = App.getSystemDataDirectory() if App.isMac and not App.isInDev else '.'
-_ini_path = os.path.join(_ini_path, 'config.ini')
-App.Config = ConfigParserWraper(_ini_path)

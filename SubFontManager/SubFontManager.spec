@@ -18,7 +18,7 @@ else:
 a = Analysis(
     ['main.py'],
     pathex=[],
-    binaries=[('fontmatch.dll', '.')],
+    binaries=[('fontmatch.dll', '.')] if sys.platform == 'win32' else [],
     datas=[
         (tkdnd_path, 'tkinterdnd2'),
         ('icon/icon@128.png' if is_macos else 'icon/icon@256.png', 'icon'),
@@ -30,7 +30,7 @@ a = Analysis(
     runtime_hooks=[],
     # Indispensables: xml, inspect, logging, setuptools, distutils, email, http
     excludes=['test', 'unittest', 'doctest', 'pydoc', 'pdb', 'cProfile', 'cgi', 'venv', 'asyncio', 'pip',
-              'html', 'turtle', 'idlelib', 'lib2to3', 'cgitb', 'concurrent', 'sqlite3'],
+              'html', 'turtle', 'idlelib', 'lib2to3', 'cgitb', 'concurrent', 'sqlite3', 'Cython'],
     noarchive=False,
     optimize=0,
 )
@@ -47,7 +47,7 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=sys.platform!='win32',    # 官方不建议Windows下使用strip
     upx=False,
-    console=False,
+    console=False,  # 是否显示调试控制台窗口
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,

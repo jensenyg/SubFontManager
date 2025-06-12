@@ -12,16 +12,16 @@ class FlatButton(tk.Frame):
             self.label = tk.Label(self, text=text, font=('Arial', 26), **kwargs)
             self.label.pack(pady=(0, 3))
         else:
-            self.label = tk.Label(self, text=text, font=('Arial', 11), **kwargs)
-            self.label.pack(pady=(6, 0))
+            self.label = tk.Label(self, text=text, font=('Segoe UI Symbol', 16), **kwargs)
+            self.label.pack(pady=(0, 4))
         self.label.bind("<ButtonPress-1>", self.onMouseDown)
         self.label.bind("<ButtonRelease-1>", self.onMouseUp)
         self.command = command
 
     def onMouseDown(self, event):
-        self.label.pack_configure(padx=(2, 0), pady=(0, 1) if App.isMac else (7, 0))
+        self.label.pack_configure(padx=(2, 0), pady=(0, 1) if App.isMac else (0, 3))
 
     def onMouseUp(self, event):
-        self.label.pack_configure(padx=0, pady=(0, 3) if App.isMac else (6, 0))
+        self.label.pack_configure(padx=0, pady=(0, 3) if App.isMac else (0, 4))
         if self.command:
             self.command(event)

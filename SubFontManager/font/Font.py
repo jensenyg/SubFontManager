@@ -156,13 +156,13 @@ class Font:
             if reserveNames:
                 # 找出与需要保留的字体名称，子集化可能会把它删掉，导致无法匹配
                 name_list = ttf_font['name'].names  # 字体名表
-                name_records = []  # 保留名称记录
+                preserved_names = []    # 需要保留的名字记录表
                 for name in reserveNames:
                     for name_id in name_ids:
                         name_record = next((record for record in name_list if record.nameID == name_id
                                             and self.decodeNameRecord(record).lower() == name), None)
                         if name_record: # 把相同的名字记录保存下来
-                            name_records.append(name_record)
+                            preserved_names.append(name_record)
 
             # 子集化 ---------
             if 'ignore_missing_glyphs' not in kwargs:
@@ -174,7 +174,7 @@ class Font:
             if reserveNames:
                 # 检查名表，如果需要保留的字体名称被删掉了，将它加回来
                 name_list = ttf_font['name'].names
-                for name_record in name_records:
+                for name_record in preserved_names:
                     for record in name_list:
                         if (record.nameID == name_record.nameID and record.platformID == name_record.platformID
                                 and record.langID == name_record.langID and record.string == name_record.string):

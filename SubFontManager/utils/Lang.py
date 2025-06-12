@@ -7,49 +7,45 @@ class LanguageDict:
     ENGLISH = 'English'
 
     def __init__(self, langDir: str = None):
-        self.langDir = langDir if langDir else os.path.join(App.getResourcesDirectory(), 'lang')
-        self.lang = {}
-        self.currentLang = self.ENGLISH
-        self.initLang = App.Config.get('General', 'lang', 'English')
-        self.langList = []
+        self.name: str = '' # 语言名，如English，简体中文
+        self.dict: dict[str, str] = {}  # 语言翻译字典
+        self.allLangs: dict[str, str] = {self.ENGLISH: ''}  # 语言目录下所有的语言名和文件名映射
+
+        lang_dir: str = langDir if langDir else os.path.join(App.getResourcesDirectory(), 'lang')   # 语言文件目录
+        lang_file: str = App.Config.get('General', 'lang', '')  # 语言文件名
+
+        if os.path.exists(lang_dir):
+            for filename in next(os.walk(lang_dir))[2]: # 遍历目录内所有文件
+                if filename[-5:].lower() != '.json':    # 跳过非json文件
+                    continue
+                lang_path = os.path.join(lang_dir, filename)
+                try:
+                    with open(lang_path, 'r', encoding='utf-8') as file:
+                        file_str = file.read()
+                    lang_dict = eval(file_str)  # 对简单的文本键值json，直接用eval执行
+                    lang_name = lang_dict.get('name')   # 语言名
+                    if lang_name is None:   # 不包含语言名，不是合法的语言文件
+                        continue
+                    self.allLangs[lang_name] = filename
+                    if filename == lang_file:   # 找到当前配置的语言文件
+                        self.name = lang_name
+                        self.dict = lang_dict.get('dict', {})
+                except Exception:
+                    print(f'Warning: 语言文件 {lang_path} 错误，已忽略.')
+
+        if not self.name:   # 如果每找到当前配置的语言文件，则退回到英语
+            self.name = self.ENGLISH
+            App.Config.set('General', 'lang', '')
+
+        self.nameInConfig = self.name   # 配置文件中已经保存的语言，此值为语言名，但其实ini里存的是文件名
 
     def __getitem__(self, key) -> str:
-        return self.lang.get(key, key)
+        return self.dict.get(key, key)
 
-    def load(self, langName: str = None):
-        if not os.path.exists(self.langDir):
-            return
-
-        if not langName:
-            langName = self.initLang
-        self.langList = [self.ENGLISH]
-        filenames = next(os.walk(self.langDir))[2]
-        for filename in filenames:
-            if filename[-5:].lower() != '.json':
-                return
-            lang_path = os.path.join(self.langDir, filename)
-            try:
-                with open(lang_path, 'r', encoding='utf-8') as file:
-                    file_str = file.read()
-                lang_dict = eval(file_str)
-                self.langList.append(lang_dict['name'])
-                if lang_dict['name'] == langName:
-                    self.currentLang = langName
-                    self.lang = lang_dict['lang']
-            except Exception as e:
-                if 'file' in locals() and file:
-                    file.close()
-                print(f'Warning: 语言文件 {lang_path} 错误，已忽略.')
-
-        if langName not in self.langList:   # 如果ini中设置的语言文件找不到，则将设置修改回English
-            self.initLang = self.ENGLISH
-            self.saveSetting(self.ENGLISH)
-
-    def saveSetting(self, langName: str = None):
-        if langName:
-            self.currentLang = langName
-        App.Config.set('General', 'lang', self.currentLang)
+    def Switch(self, name: str):
+        """切换语言，仅保存配置，新语言重启后生效"""
+        self.nameInConfig = name
+        App.Config.set('General', 'lang', self.allLangs[name])
 
 
 Lang = LanguageDict()
-Lang.load()

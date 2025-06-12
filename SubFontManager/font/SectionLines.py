@@ -193,7 +193,7 @@ class FontDict(dict[str, list[str]], SectionLines):
 
     def getStream(self, name: str, index: int = 0) -> io.BytesIO | None:
         """
-        获取字体对象
+        获取字体对象数据流
         :param name: 内嵌文件名
         :param index: 重复文件名中的编号
         :return: BytesIO，找不到则返回None

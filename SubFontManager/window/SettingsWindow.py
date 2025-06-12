@@ -42,28 +42,28 @@ class SettingsWindow(ui.PopupWindow):
         email_label.bind("<Button-1>", lambda e: webbrowser.open_new('mailto:' + Version.__email__))
         height += text.winfo_reqheight()
 
-        # 添加Github
-        github_frame = tk.Frame(self)
-        github_frame.pack(side=tk.TOP, padx=gap)
-        tk.Label(github_frame, text='GitHub:').pack(side=tk.LEFT)
-        github_label = tk.Label(github_frame, text=Version.__homepage__, fg="blue")
-        github_label.pack(side=tk.LEFT)
-        github_label.bind("<Button-1>", lambda e: webbrowser.open_new(Version.__homepage__))
+        # 添加主页
+        homepage_frame = tk.Frame(self)
+        homepage_frame.pack(side=tk.TOP, padx=gap)
+        tk.Label(homepage_frame, text='GitHub:').pack(side=tk.LEFT)
+        homepage_label = tk.Label(homepage_frame, text=Version.__homepage__, fg="blue")
+        homepage_label.pack(side=tk.LEFT)
+        homepage_label.bind("<Button-1>", lambda e: webbrowser.open_new(Version.__homepage__))
         height += text.winfo_reqheight()
 
         # 添加语言选择组合框
         lang_frame = tk.Frame(self)
         lang_frame.pack(side=tk.TOP, padx=gap, pady=2*gap)
         tk.Label(lang_frame, text=Lang['Language'] + ':').pack(side=tk.LEFT, padx=gap/2)
-        self.lang_var = tk.StringVar()
-        self.lang_var.set(Lang.currentLang)
-        lang_list = Lang.langList
-        lang_cmb = ttk.Combobox(lang_frame, textvariable=self.lang_var, values=lang_list, state='readonly')
+        self.langVar = tk.StringVar()
+        self.langVar.set(Lang.nameInConfig)
+        lang_cmb = ttk.Combobox(lang_frame, textvariable=self.langVar, values=list(Lang.allLangs.keys()),
+                                state='readonly')
         lang_cmb.pack(side=tk.LEFT, padx=gap/2, fill=tk.X)
         height += lang_cmb.winfo_reqheight() + 4 * gap
 
         # 添加OK按钮
-        ok_btn = ttk.Button(self, text=Lang['OK'], command=self.close)
+        ok_btn = ttk.Button(self, text=Lang['OK'], command=self.onOkBtn)
         ok_btn.pack()
         ok_btn.focus_set()
         height += ok_btn.winfo_reqheight() + 4 * gap
@@ -71,11 +71,11 @@ class SettingsWindow(ui.PopupWindow):
         ui.placeWindow(self, width=400*App.dpiScale, height=height, yRatio=0.4)
         master.wait_window(self)    # 本窗口关闭前父窗口等待
 
-    def close(self):
-        new_lang = self.lang_var.get()
-        if new_lang != Lang.currentLang:
-            Lang.saveSetting(new_lang)
-        if new_lang != Lang.initLang:
+    def onOkBtn(self):
+        new_name = self.langVar.get()
+        if new_name != Lang.nameInConfig:
+            Lang.Switch(new_name)
+        if new_name != Lang.name:
             messagebox.showinfo(Lang['Reminding'], Lang['Language changing takes effect after restart.'], parent=self)
             # 这里不重启，因为tkinter软重启问题多多，os.execl会导致拖放事件失效，subprocess.Popen会导致弹出messagebox时直接崩溃
         self.destroy()

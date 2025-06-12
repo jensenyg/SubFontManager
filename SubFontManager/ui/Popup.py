@@ -36,6 +36,7 @@ def placeWindow(window, x = None, y = None, width = 500, height = 400,
 
 
 class PopupWindow(tk.Toplevel):
+    """弹出窗口类"""
     def __init__(self, master, title: str = None):
         super().__init__(master)
         self.title(title)
