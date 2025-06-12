@@ -78,7 +78,7 @@ class FontList(ui.WidgetTable):
         self.subtitleObj: SubStationAlpha | None = None
 
         # 内嵌列
-        self.addColumn(Lang['Eb'], width=40, sortKey=lambda r: r.data.embed.get(), toolTip=Lang['Embed'])
+        self.addColumn(Lang['Embed'], width=45, sortKey=lambda r: r.data.embed.get())
         # 字体名列
         weight = float(App.Config.get('General', 'font_column_weight', 1))
         self.addColumn(Lang['Font'], weight=weight, sortKey=lambda r: r.data.fontName,
@@ -88,9 +88,9 @@ class FontList(ui.WidgetTable):
         # 字数列
         width = int(App.Config.get('General', 'count_column_width', 55))
         self.addColumn(Lang['Count'], width=width, sortKey=lambda r: len(r.data.text),
-                       minWidth=40, adjuster=tk.RIGHT, toolTip=Lang['Non-repeating characters count'])
+                       minWidth=45, adjuster=tk.RIGHT, toolTip=Lang['Non-repeating characters count'])
         # 子集化列
-        self.addColumn(Lang['Ss'], width=40, sortKey=lambda r: r.data.subset.get(), toolTip=Lang['Subset'])
+        self.addColumn(Lang['Subset'], width=45, sortKey=lambda r: r.data.subset.get(), toolTip=Lang['Subsetting'])
         # 文件源列
         weight = float(App.Config.get('General', 'source_column_weight', 2))
         self.addColumn(Lang['File source'], weight=weight, sortKey=lambda r: r.data.sourceWidget.get(),
@@ -165,7 +165,7 @@ class FontList(ui.WidgetTable):
             # Checkbox：是否内嵌
             row_item.embedWidget = ui.Checkbox(row_frame, variable=row_item.embed, text='')
             row_item.embedWidget.bind("<Button-1>", lambda e, r=row_item: self.onEmbedClicked(r))
-            row_frame.addCell(row_item.embedWidget, padx=(6, 0))
+            row_frame.addCell(row_item.embedWidget, padx=(14, 0))
             # Label：字体名
             row_item.fontNameWidget = ui.Label(row_frame, text=row_item.fontName, overstrike=not row_item.valid,
                                                anchor=tk.W)
@@ -179,7 +179,7 @@ class FontList(ui.WidgetTable):
             row_item.subsetWidget = ui.Checkbox(row_frame, variable=row_item.subset,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED)
             row_item.subsetWidget.bind("<Button-1>", lambda e, r=row_item: self.onSubsetClicked(r))
-            row_frame.addCell(row_item.subsetWidget, padx=(5, 0))
+            row_frame.addCell(row_item.subsetWidget, padx=(14, 0))
             # Combobox：文件源
             row_item.sourceWidget = ui.Combobox(row_frame, placeholder=self.SrcCmbOptions.NOSRC, background=self.bg,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED,
@@ -248,22 +248,22 @@ class FontList(ui.WidgetTable):
                 else:   # 这里将字体匹配结果保存到row_item，如果本次执行失败，在下次执行时还会有效
                     row_item.font = font
 
-        if not next((ri for ri in row_items if ri.taskType), None): # 检查是否有任务可以执行
-            messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
-            return False    # 表示操作取消
-        elif warnings:  # 检查是否有警告消息
+        if warnings:  # 检查是否有警告消息
             messagebox.showerror(Lang['Error'], '\n'.join(warnings))
+            return False  # 表示操作取消
+        elif not next((ri for ri in row_items if ri.taskType), None): # 检查是否有任务可以执行
+            messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
             return False    # 表示操作取消
 
         # 检查大字体的子集化是否勾选 -------------
         for row_item in row_items:
             if (TaskType.EXTERNAL in row_item.taskType and TaskType.SUBSETTING not in row_item.taskType
                     and os.path.getsize(row_item.sourceWidget.get()) > self.WARNING_MAX_FONT_SIZE): # 文件过大且不子集化
-                warnings.append(Lang['File source of "{fs}" is big and subset is not selected,']
+                warnings.append(Lang['File source of "{fs}" is large and subsetting is not selected,']
                                 .format(fs=f"{row_item.fontName} {Lang[row_item.styleName]}"))
         if warnings and not messagebox.askyesno(Lang['Reminding'],
-                '\n'.join(warnings) + '\n' + Lang["embedding them directly may significantly increase the size "
-                                                  "of the subtitle file, are you sure you want to proceed?"]):
+                '\n'.join(warnings) + '\n' + Lang["embedding them directly may significantly increase the "
+                                                  "file size of subtitle, are you sure you want to proceed?"]):
             return False    # 表示操作取消
 
         # 检查是否有多个同家族字体未全部内嵌 -------------

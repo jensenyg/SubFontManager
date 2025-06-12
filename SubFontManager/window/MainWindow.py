@@ -16,69 +16,69 @@ class MainWindow:
     def __init__(self, root: TkinterDnD.Tk):
         self.root = root
         ui.init()   # 初始化全局控件样式
-        gap = 2 * App.dpiScale        # 控件垂直间距
-        padding = 5 * App.dpiScale    # 窗口边缘距离
+        gapV = 5 * App.dpiScale     # 控件垂直间距
+        padding = 5 * App.dpiScale  # 窗口边缘距离
 
         # 文件打开和保存区 ---------------
         file_frame = ttk.Frame(root)
         file_frame.grid(row=0, padx=2*padding, pady=(2*padding, padding), sticky=tk.EW)
 
-        ttk.Label(file_frame, text=Lang['Input file'] + ':').grid(row=0, column=0, pady=gap, sticky=tk.W)
-        # 这里如果不放在self下，函数执行完后file_entry_text就会被回收，导致事件监听失效
+        # "输入文件"Label
+        ttk.Label(file_frame, text=Lang['Input file'] + ':').grid(row=0, column=0, pady=gapV, sticky=tk.W)
+        # 这里如果不放在self下，函数执行完后fileEntryText就会被回收，导致事件监听失效
         self.fileEntryText = tk.StringVar()
+        # 输入文件输入框
         self.srcEntry = ttk.Entry(file_frame, textvariable=self.fileEntryText)
-        self.srcEntry.grid(row=0, column=1, columnspan=2, padx=(padding, gap), pady=(1, 0), sticky=tk.EW)
-        self.srcEntry.bind('<Return>', self.onFileEntryEnter)
-        self.fileEntryText.trace_add('write', self.onFileEntryInsert)
-        btn_width = 0 if App.isMac else 2 * App.dpiScale
-        ui.Button(file_frame, text="...", width=btn_width, command=self.openFile).grid(row=0, column=3, pady=(0, 2))
+        self.srcEntry.grid(row=0, column=1, padx=(2*padding, gapV), pady=(1, 0), sticky=tk.EW)
+        self.srcEntry.bind('<Return>', self.onFileEntryEnter)   # 监听回车事件
+        self.fileEntryText.trace_add('write', self.onFileEntryInsert)   # 监听输入事件
+        btn_width = 0 if App.isMac else 3 * App.dpiScale
+        # 浏览输入文件按钮
+        ui.Button(file_frame, text="...", width=btn_width, command=self.openFile).grid(row=0, column=3)
 
-        ttk.Label(file_frame, text=Lang['Output file'] + ':').grid(row=1, column=0, pady=gap, sticky=tk.W)
-        self.saveMode = tk.IntVar()  # 与输出文件位置单选按钮绑定的变量
-        self.saveMode.set(0)
-        ttk.Radiobutton(file_frame, text=Lang['Modify source file'], variable=self.saveMode, value=0,
-                        command=self.onSwitchSaveMode).grid(row=1, column=1, padx=padding, sticky=tk.W)
-
-        # "另存为"Frame，包括一个Radio和一个Entry ----------
-        saveas_frame = ttk.Frame(file_frame)
-        saveas_frame.grid(row=2, column=1, columnspan=3, sticky=tk.EW)
-        ttk.Radiobutton(saveas_frame, text=Lang['Save as'] + ':', variable=self.saveMode, value=1,
-                        command=self.onSwitchSaveMode).pack(side=tk.LEFT, padx=padding, pady=gap)
-        self.dstEntry = ui.Entry(saveas_frame, placeholder=Lang['Leave blank to save to source directory.'])
-        self.dstEntry.configure(state=tk.DISABLED)
-        self.dstEntry.pack(side=tk.LEFT, padx=(padding, gap), pady=(1, 0), fill=tk.X, expand=True)
-        self.openDstBtn = ui.Button(saveas_frame, text="...", width=btn_width, state=tk.DISABLED,
-                                    command=self.openSaveAs)
-        self.openDstBtn.pack(side=tk.RIGHT, pady=(0, 2))
+        # "输出文件"Label
+        ttk.Label(file_frame, text=Lang['Output file'] + ':').grid(row=1, column=0, pady=gapV, sticky=tk.W)
+        # 输出文件输入框
+        self.dstEntry = ui.Entry(file_frame, placeholder=Lang['Leave blank to save to source path.'])
+        self.dstEntry.grid(row=1, column=1, padx=(2*padding, gapV), pady=(1, 0), sticky=tk.EW)
+        # 浏览输出文件按钮
+        ui.Button(file_frame, text="...", width=btn_width, command=self.openSaveAs).grid(row=1, column=3)
 
         # 配置列权重，使输入框能够随窗口大小变化而变化
         file_frame.columnconfigure(1, weight=1)
 
         # 字体列表和"载入"按钮 ---------------
-        fontlist_frame = ttk.Frame(root)    # "字体列表"Label和"载入"按钮
-        fontlist_frame.grid(row=1, padx=padding, sticky=tk.EW)
-        ttk.Label(fontlist_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=padding)
-        self.loadBtn = ui.Button(fontlist_frame, text=Lang['Load'], width=(6 if App.isMac else 7)*App.dpiScale,
+        fontlistTitle_frame = ttk.Frame(root)
+        fontlistTitle_frame.grid(row=1, padx=padding, sticky=tk.EW)
+        # "字体列表"Label
+        ttk.Label(fontlistTitle_frame, text=Lang['Fonts in the subtitle'] + ':').pack(side=tk.LEFT, padx=padding)
+        # "载入"按钮
+        self.loadBtn = ui.Button(fontlistTitle_frame, text=Lang['Load'], width=(6 if App.isMac else 7)*App.dpiScale,
                                  state=tk.DISABLED, command=self.onLoadBtn)
         self.loadBtn.pack(side=tk.RIGHT, padx=5)
 
-        self.fontList = FontList(root)    # 字体列表
-        self.fontList.grid(row=2, padx=2*padding, pady=padding, sticky=tk.NSEW)
+        # 字体列表
+        self.fontList = FontList(root)
+        self.fontList.grid(row=2, padx=2*padding, pady=1.5*padding, sticky=tk.NSEW)
 
         # 底部的状态栏和应用关闭按钮区 --------------
         bottom_frame = ttk.Frame(root)
-        bottom_frame.grid(row=3, padx=2*padding, pady=(0, 2*padding), sticky=tk.EW)
+        bottom_frame.grid(row=3, padx=2*padding, pady=(0.5*padding, 2*padding), sticky=tk.EW)
+        # 状态栏
         self.statusBar = ui.StatusBar(bottom_frame)
         self.statusBar.pack(side=tk.LEFT, padx=(0, padding), fill=tk.X, expand=True)
 
+        # 关闭按钮
         ui.Button(bottom_frame, text=Lang['Close'], width=(5 if App.isMac else 7)*App.dpiScale, command=root.destroy)\
             .pack(side=tk.RIGHT, padx=padding)
+        # 应用按钮
         self.applyBtn = ui.Button(bottom_frame, text=Lang['Apply'], width=(5 if App.isMac else 7)*App.dpiScale,
                                   state=tk.DISABLED, command=self.onApplyBtn)
         self.applyBtn.pack(side=tk.RIGHT, padx=padding)
+        # 设置按钮
         config_btn = ui.FlatButton(bottom_frame, text='⚙', fg='#645D56', command=self.showSettings)
         config_btn.pack(side=tk.RIGHT, padx=padding)
-        ui.ToolTip(config_btn, Lang['Settings'])
+        ui.ToolTip(config_btn, Lang['Settings'])    # 设置按钮提示标签
 
         # 配置列权重，使列表框能够随窗口大小变化而变化
         root.rowconfigure(2, weight=1)
@@ -91,7 +91,7 @@ class MainWindow:
     def openFile(self):
         """点击打开文件"""
         file_name = filedialog.askopenfilename(
-            filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
+            filetypes=[("SubStation Alpha", ".ass .ssa"), ("All files", "*.*")])
         if file_name:
             self.srcEntry.delete(0, tk.END)
             self.srcEntry.insert(0, file_name)
@@ -107,7 +107,7 @@ class MainWindow:
             initialdir=os.path.dirname(base_path),
             initialfile="newsubtitle",
             defaultextension=".ass",
-            filetypes=[("[Advanced] SubStation Alpha", ".ass .ssa"), ("All files", "*.*")]
+            filetypes=[("SubStation Alpha", ".ass .ssa"), ("All files", "*.*")]
         )
         self.dstEntry.focus_set()
         if file_path:
@@ -128,11 +128,6 @@ class MainWindow:
             obj = self.root.focus_get()
             messagebox.showerror(Lang['Error'], Lang['Only .ass and .ssa files are supported.'])
             obj.focus_set()
-
-    def onSwitchSaveMode(self):
-        """点击切换保存位置"""
-        self.dstEntry.configure(state=tk.DISABLED if self.saveMode.get() == 0 else tk.NORMAL)
-        self.openDstBtn.configure(state=tk.DISABLED if self.saveMode.get() == 0 else tk.NORMAL)
 
     def onFileEntryInsert(self, *args):
         """输入文件框值改变响应"""
@@ -186,9 +181,9 @@ class MainWindow:
         else:   # 嵌入成功
             if not self.dstEntry.isblank:   # 如果另存框里有内容，打开另存路径的文件
                 self.srcEntry.delete(0, tk.END)
-                self.srcEntry.insert(0, self.dstEntry.get())    # 则将内容拷贝到输入文件框
-                self.saveMode.set(0)        # radio按钮重新选择到源文件
-                self.onSwitchSaveMode()     # 设置两个输入框的可用性
+                self.srcEntry.insert(0, self.dstEntry.get())    # 则将内容拷贝到输入框
+                self.dstEntry.delete(0, tk.END) # 删除输出框中的内容
+                self.dstEntry.onFocusOut()      # 手动触发失焦事件，从而让输出框内显示占位符
             self.onLoadBtn(updateStatus=False)  # 重新载入文件，不更新状态栏
             self.statusBar.set(Lang["Finished, file reloaded"], duration=3)
 
