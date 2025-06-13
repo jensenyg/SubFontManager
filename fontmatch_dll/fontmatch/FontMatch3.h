@@ -17,7 +17,7 @@ public:
     bool Init() override;
 
     // 匹配字体
-    const std::wstring GetMatchingFont(std::unordered_map<FONT_PROPERTY, std::wstring>& propDict, bool strict = false) override;
+    const std::wstring GetMatchingFont(const std::unordered_map<FONT_PROPERTY, std::wstring>& propDict, bool strict = false) const override;
 
 protected:
     // 系统字体集

@@ -31,17 +31,17 @@ bool FontMatch3::Init()
     return SUCCEEDED(factory3->GetSystemFontSet(&this->systemFontSet));
 }
 
-const wstring FontMatch3::GetMatchingFont(unordered_map<FONT_PROPERTY, wstring>& propDict, bool strict)
+const wstring FontMatch3::GetMatchingFont(const unordered_map<FONT_PROPERTY, wstring>& propDict, bool strict) const
 {
     // 提取各种名字属性，用于严格筛选 ------
     vector<DWRITE_FONT_PROPERTY> fontProps; // 字体属性描述
-    FONT_PROPERTY propNames[] = {   // 用于严格筛选的属性名
+    const FONT_PROPERTY propNames[] = { // 用于严格筛选的属性名
         FONT_PROPERTY::POSTSCRIPT_NAME,
         FONT_PROPERTY::FULL_NAME,
         FONT_PROPERTY::SUBFAMILY_NAME,
         FONT_PROPERTY::FAMILY_NAME
     };
-    wstring* prop_value;
+    const wstring* prop_value;
     for (auto& prop_name : propNames) {
         prop_value = GetFromMap(propDict, prop_name);
         if (prop_value) {    // 查询属性中包含指定名字
@@ -64,7 +64,7 @@ const wstring FontMatch3::GetMatchingFont(unordered_map<FONT_PROPERTY, wstring>&
     auto font_weight = GetEnumFromMap(propDict, FONT_PROPERTY::WEIGHT, DWRITE_FONT_WEIGHT_REGULAR, &weight_exists); // 字重
     auto font_style = GetEnumFromMap(propDict, FONT_PROPERTY::STYLE, DWRITE_FONT_STYLE_NORMAL, &style_exists); // 风格（斜体）
     auto font_stretch = GetEnumFromMap(propDict, FONT_PROPERTY::STRETCH, DWRITE_FONT_STRETCH_NORMAL, &stretch_exists); // 拉伸
-    wstring*& family_name = prop_value;  // 因为FAMILY_NAME排在最后一个查找，所以最后一个prop_value就是家族名
+    const wstring*& family_name = prop_value;  // 因为FAMILY_NAME排在最后一个查找，所以最后一个prop_value就是家族名
 
     // 进行字重风格和子族的筛选，并选出一个匹配的字体 -------
     ComPtr<IDWriteFontFaceReference> matched_faceRef = nullptr; // 最终可能匹配到的字体引用

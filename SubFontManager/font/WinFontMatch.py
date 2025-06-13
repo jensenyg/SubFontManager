@@ -56,7 +56,7 @@ class WinFontmatch:
         :param strict: 严格模式
         :return: 匹配到的字体的路径
         """
-        json_str = json.dumps(attrs).encode('utf-8')    # 序列化为JSON字符串并按UTF8编码
+        json_str = json.dumps(attrs, ensure_ascii=False).encode('utf-8')    # 序列化为JSON字符串并按UTF8编码
         raw_str = cls._dll.GetMatchingFont(json_str, strict)    # 调用 DLL 函数
         return raw_str.decode("utf-8") if raw_str else None
 

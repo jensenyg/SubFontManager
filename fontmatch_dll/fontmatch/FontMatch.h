@@ -22,7 +22,7 @@ public:
     virtual bool Init();
 
     // 匹配字体
-    virtual const std::wstring GetMatchingFont(std::unordered_map<FONT_PROPERTY, std::wstring>& propDict, bool strict = false);
+    virtual const std::wstring GetMatchingFont(const std::unordered_map<FONT_PROPERTY, std::wstring>& propDict, bool strict = false) const;
 
 protected:
     // 系统字体集

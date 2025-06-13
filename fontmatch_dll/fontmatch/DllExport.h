@@ -74,4 +74,11 @@ extern "C"
      * @return 匹配字体的路径字串，找不到则返回nullptr，返回的指针无需释放。
      */
     __declspec(dllexport) const char* GetMatchingFont(const char* json_str, bool strict = false);
+
+    /**
+     * 获得最后一次GetMatchingFont的结果码
+     * 0: 正常匹配
+     * 1: 输入JSON格式不合法
+     */
+    __declspec(dllexport) int GetLastResultCode();
 }

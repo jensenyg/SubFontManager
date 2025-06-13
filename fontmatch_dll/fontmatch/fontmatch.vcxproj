@@ -147,7 +147,6 @@
     <ClInclude Include="FontMatch3.h" />
     <ClInclude Include="FontProperty.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="json.hpp" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />

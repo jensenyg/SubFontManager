@@ -24,9 +24,6 @@
     <ClInclude Include="FontMatch.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="json.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>头文件</Filter>
     </ClInclude>

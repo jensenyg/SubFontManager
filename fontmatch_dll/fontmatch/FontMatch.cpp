@@ -63,7 +63,7 @@ bool FontMatch::Init()
     return true;
 }
 
-const wstring FontMatch::GetMatchingFont(unordered_map<FONT_PROPERTY, wstring>& propDict, bool strict)
+const wstring FontMatch::GetMatchingFont(const unordered_map<FONT_PROPERTY, wstring>& propDict, bool strict) const
 {
     // Postscript名匹配 -------
     auto p_ps_name = GetFromMap(propDict, FONT_PROPERTY::POSTSCRIPT_NAME);
