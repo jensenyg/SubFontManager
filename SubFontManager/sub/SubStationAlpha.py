@@ -3,9 +3,8 @@ import re
 from dataclasses import dataclass
 from charset_normalizer import from_path
 from utils import Lang
+from font import Font, FontManager
 from .SectionLines import *
-from .Font import Font
-from .FontManager import FontManager
 
 
 @dataclass
@@ -23,6 +22,19 @@ class SubFontDesc:
 class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
     """用于收集字幕中出现过字体以及其覆盖的字符，结构为{(fontName, bold, italic): chars}"""
 
+    digit_ptn = re.compile(r'[+-]?\d+') # 提取字串前部的数字
+
+    @classmethod
+    def toBool(cls, s) -> bool:
+        """将str安全转为bool"""
+        if isinstance(s, str):
+            match = cls.digit_ptn.match(s)
+            return bool(int(match.group(0))) if match else False
+        elif isinstance(s, bool):
+            return s
+        else:
+            return False
+
     def __init__(self, fontMgr: FontManager):
         super().__init__()
         self.fontMgr = fontMgr
@@ -30,10 +42,12 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
     def addTextToFont(self, fontName: str, bold: str | bool, italic: str | bool, text: str = '',
                       font: Font = None, valid: bool = True):
         """向字典中加入字体并合并覆盖的文字"""
-        bold = bool(int(bold))  # 非0都判断为真，如1、-1、2等
-        italic = bool(int(italic))
+        if not fontName:
+            return
+        bold = self.toBool(bold)
+        italic = self.toBool(italic)
         # 向字典中加入字体覆盖的文字 ----------
-        key = (fontName, bold, italic)  # 字典的访问键
+        key = (fontName.lower(), bold, italic)  # 字典的访问键
         chars = set(c for c in text)    # 将每一个字符单独加入set，合并重复字符
         if key in self:
             self[key].text.update(chars)
@@ -47,11 +61,12 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
 class SubStationAlpha:
     """ASS字幕类，维护字幕的所有Style、Font、Dialogue内容和读写操作"""
 
-    # 分析对白文本中内联样式的正则式 ---------
-    _inlineStyle_ptn = re.compile(r'\{.+?}')    # 用于查找行内样式{}的内容
-    _inlineFont_ptn = re.compile(r'\\fn(.+?)[\\,}]')# 用于查找{}内的\fn内容并提取字体名
-    _inlineBold_ptn = re.compile(r'\\b\s*(\d+)')    # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord混淆
-    _inlineItalic_ptn = re.compile(r'\\i\s*(\d+)')  # 用于查找{}内的\i并提取后面的数字
+    # 用于分析字幕文本的正则式 ---------
+    _inlineContent_ptn = re.compile(r'\{(.+?)}')        # 用于查找行内样式{}的内容
+    _inlineStyle_ptn = re.compile(r'\\\s*r([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
+    _inlineFont_ptn = re.compile(r'\\\s*fn([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
+    _inlineBold_ptn = re.compile(r'\\\s*b\s*(\d+)')     # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord混淆
+    _inlineItalic_ptn = re.compile(r'\\\s*i\s*(\d+)')   # 用于查找{}内的\i并提取后面的数字
     _section_ptn = re.compile(r'^\[.*]')    # 匹配中括号行[...]
 
     def __init__(self, path: str, encoding: str = None):
@@ -102,13 +117,14 @@ class SubStationAlpha:
 
         sections: dict[str, SectionLines] = {   # Section按名索引表
             self.infoList.sectionName.lower(): self.infoList,
-            self.styleDict.sectionName.lower(): self.styleDict,
             self.fontDict.sectionName.lower(): self.fontDict,
             self.graphicList.sectionName.lower(): self.graphicList,
             self.dialogueList.sectionName.lower(): self.dialogueList
         }
+        # Style段有多个段名，要分别加入索引表
+        sections.update({s.lower(): self.styleDict for s in self.styleDict.SECTION_NAMES})
 
-        section_lines: SectionLines | None = None   # 当前行所在的Section对象
+        section: SectionLines | None = None # 当前行所在的Section对象
         continuous_section = False  # 是否正在读取连贯Section
 
         with (open(path, 'r', encoding=encoding) as file):  # 打开文件
@@ -120,14 +136,16 @@ class SubStationAlpha:
                     if match_obj:    # 中括号行出现，切换行类型
                         section_name = match_obj.group(0).lower()
                         # 对于非标准的Section，如"[Aegisub Project Garbage]"，临时新建一个SectonLines保存
-                        section_lines = sections.get(section_name, SectionLines(section_name.title()))
-                        if section_lines not in self.sectionsInOrder:   # 如果标准Section有重复的，以第一个的位置为准
-                            self.sectionsInOrder.append(section_lines)  # 保存入顺序表
+                        section = sections.get(section_name, SectionLines(section_name.title()))
+                        if section is self.styleDict:   # 如果是Style段，需要给它确定一下具体名字版本
+                            self.styleDict.init(section_name)
+                        if section not in self.sectionsInOrder:     # 如果标准Section有重复的，以第一个的位置为准
+                            self.sectionsInOrder.append(section)    # 保存入顺序表
                         continue
                 try:
-                    continuous_section = section_lines.append(line) # 向SectionLines插入新行
+                    continuous_section = section.append(line)   # 向SectionLines插入新行
                 except ValueError:
-                    raise Exception(Lang["Subtitle line {d} format error."].format(d=i+1))
+                    raise Exception(Lang["Line {d} format error."].format(d=i+1))
 
     def save(self, path: str = None, encoding: str = None):
         """
@@ -170,36 +188,57 @@ class SubStationAlpha:
 
         # 收集Dialogue中出现的字体 ---------
         for i in range(len(self.dialogueList)):  # 遍历每一行对白
+            if not self.dialogueList.isValid(i):
+                continue    # 跳过非Dialogue行
             # 获取该行的样式名，去掉开头可能存在的*号
-            style_name = self.dialogueList.get(i, 'style').lstrip('*')  # 样式名，如：Default
-            fontname = self.styleDict.get(style_name, 'fontname')       # 该样式的字体名
-            if not fontname:    # 样式找不到且Default样式也没有
-                continue
+            style_name = self.dialogueList.get(i, 'style')  # 样式名，如：Default
+            fontname = self.styleDict.get(style_name, 'fontname')   # 该样式的字体名，可能找不到（Default也没有）
             bold = self.styleDict.get(style_name, 'bold')       # 是否粗体，如"0"
             italic = self.styleDict.get(style_name, 'italic')   # 是否斜体，如"1"
-            # 查找行内样式{} ---------
+            # 查找行内覆盖样式{} ---------
             text = self.dialogueList.get(i, 'text') # 对白文本部分，里面可能还有{}内联样式
-            match_iter = self._inlineStyle_ptn.finditer(text)   # {}正则匹配
-            pos = 0    # 字符位置指针
-            for m_obj in match_iter:    # 遍历每一个{}中的内容
+            inlineContent_iter = self._inlineContent_ptn.finditer(text) # {}内容正则匹配
+            text_pos = 0    # 对白字符位置指针
+
+            for inlineContent_match in inlineContent_iter:  # 遍历每一个{}中的内容
                 # 将{}之前的文字都划归给上一种样式
-                fontDescDict.addTextToFont(fontname, bold, italic, text[pos: m_obj.start()])
-                pos = m_obj.end()
-                inline_style_str = m_obj.group().lower()    # {}以及内部的文字
+                fontDescDict.addTextToFont(fontname, bold, italic, text[text_pos: inlineContent_match.start()])
+                text_pos = inlineContent_match.end()
+                inline_content_str = inlineContent_match.group(1)   # {}内部的文字，查找\*指令时大小写敏感
+
+                # 处理{}中的\r ---------
+                style_pos = 0   # \r*结尾位置的指针，如果出现\r，则后面粗斜体都应该从它之后开始查
+                style_iter = self._inlineStyle_ptn.finditer(inline_content_str) # \r内容匹配
+                style_match = None
+                for style_match in style_iter:  # 跳过所有匹配，找到最后一个
+                    pass
+                if style_match: # 如果找到\r，则更新字体和粗斜体配置
+                    style_pos = style_match.end()   # 如果出现\r，则后面粗斜体都应该从它之后开始查
+                    # 样式名查找顺序表，注意如果找不到，则回退到本行的样式，不是退到上一个\r
+                    style_names = [style_match.group(1).strip(), style_name, 'Default']
+                    fontname = self.styleDict.get(style_names, 'fontname')
+                    bold = self.styleDict.get(style_names, 'bold')
+                    italic = self.styleDict.get(style_names, 'italic')
+
                 # 处理{}中的\fn ---------
-                all_match = self._inlineFont_ptn.findall(inline_style_str)
+                all_match = self._inlineFont_ptn.findall(inline_content_str, style_pos)
                 if all_match:   # 提取最后一个\fn后面的字体名
                     fontname = all_match[-1].strip()
-                # 处理{}中的\b ----------
-                all_match = self._inlineBold_ptn.findall(inline_style_str)
+                if not fontname:    # 如果到这里还找不到字体，连Default样式也没有
+                    continue        # 那后面的粗体斜体都不用查了，没意义了
+
+                # 处理{}中的\b，注意区分\b和\bord ----------
+                all_match = self._inlineBold_ptn.findall(inline_content_str, style_pos)
                 if all_match:   # 提取最后一个\b后面的数字
                     bold = all_match[-1]
-                # 处理{}中的\i ----------
-                all_match = self._inlineItalic_ptn.findall(inline_style_str)
+
+                # 处理{}中的\i，注意区分\i和\iclip ----------
+                all_match = self._inlineItalic_ptn.findall(inline_content_str, style_pos)
                 if all_match:   # 提取最后一个\i后面的数字
                     italic = all_match[-1]
+
             # 将最后一个{}（或没有）之后的文字都划归给最后一个样式
-            fontDescDict.addTextToFont(fontname, bold, italic, text[pos:])
+            fontDescDict.addTextToFont(fontname, bold, italic, text[text_pos:])
 
         # 查找未被引用的内嵌字体 ---------
         all_fonts = set(font_desc.font for font_desc in fontDescDict.values() if font_desc.font)    # 所有找到的字体

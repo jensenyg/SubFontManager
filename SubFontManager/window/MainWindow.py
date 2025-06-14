@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import TkinterDnD, DND_FILES
 from utils import App, Lang
 import ui
-from font import SubStationAlpha
+from sub import SubStationAlpha
 from .FontList import FontList
 from .SettingsWindow import SettingsWindow
 

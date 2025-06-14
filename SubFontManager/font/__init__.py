@@ -2,6 +2,5 @@
 
 from .Font import Font
 from .FontManager import FontManager
-from .SubStationAlpha import SubStationAlpha
 
-__all__ = ['Font', 'FontManager', 'SubStationAlpha']
+__all__ = ['Font', 'FontManager']

@@ -1,7 +1,7 @@
 import os
 from utils.App import App
 from .Font import Font
-from .SectionLines import FontDict
+from sub import FontDict
 
 if App.isWindows:  # Windows 系统字体匹配库
     from .WinFontMatch import WinFontmatch as FontMatch
@@ -83,25 +83,28 @@ class FontManager:
         :return: Font，找不到则返回None
         """
         fontName = fontName.lower()  # 转换为小写匹配
-        font: Font | None = next((f for f in fonts if fontName == f.postscriptName), None)  # 匹配Postscript名
+        # 匹配Postscript名，如果匹配到了则可以忽略粗体斜体条件
+        font: Font | None = next((f for f in fonts if fontName == f.postscriptName), None)
 
         # 先尝试严格匹配 -------
+        family_fonts = []
         if font is None:    # 匹配家族名
             family_fonts = [f for f in fonts if fontName in f.familyNames]  # 找出字体全家
             if family_fonts:    # 匹配粗体斜体
                 font = next((f for f in family_fonts if f.isBold == bold and f.isItalic == italic), None)
-        else:
-            family_fonts = None
 
+        fullname_fonts = []
         if font is None:    # 匹配全名
-            font = next((f for f in fonts if fontName in f.fullNames
-                         and f.isBold == bold and f.isItalic == italic), None)
+            fullname_fonts = [f for f in fonts if fontName in f.fullNames]  # 找出所有全名匹配的
+            font = next((f for f in fullname_fonts if f.isBold == bold and f.isItalic == italic), None)
 
-        # 如果严格匹配失败，则试试家族内粗体斜体模糊匹配 -------
-        if font is None and family_fonts:
-            font = next((f for f in family_fonts if f.isBold == bold),  # 忽略斜体尝试匹配粗体符合的
-                        next((f for f in family_fonts if f.isItalic == italic), # 忽略粗体尝试匹配斜体符合的
-                             family_fonts[0]))  # 都没有就用第一个吧
+        # 如果严格匹配失败，则试试家族内和全名字体表内的粗体斜体模糊匹配 -------
+        font_sets = [family_fonts, fullname_fonts]
+        for font_set in font_sets:  # 先后试试家族集合和全名匹配集合
+            if font is None and font_set:
+                font = next((f for f in font_set if f.isBold == bold),  # 忽略斜体尝试匹配粗体符合的
+                            next((f for f in font_set if f.isItalic == italic), # 忽略粗体尝试匹配斜体符合的
+                                 font_set[0]))  # 都没有就用第一个吧
 
         return font
 

@@ -40,30 +40,43 @@ class Font:
 
     def _readInfo(self, ttFont: TTFont):
         """读取字体信息，包括各种名表"""
-        for record in ttFont['name'].names:  # 遍历名表
-            if record.nameID not in (self.FamilyNameID, self.SubfamilyNameID, self.FullNameID, self.PostscriptNameID):
-                continue
-            record_str = self.decodeNameRecord(record).lower()  # 全部使用小写匹配
-            if not record_str:
-                continue
-            if record.nameID == self.FamilyNameID:
-                self.familyNames.add(record_str)
-            # elif record.nameID == self.SubfamilyNameID:  # Style Name
-                # 不同系统下的英文ID
-                # Unicode: platformID=0, langID=1033; Mac: platformID=1, langID=0; Win: platformID=3, langID=1033.
-            elif record.nameID == self.FullNameID:
-                self.fullNames.add(record_str)
-            elif record.nameID == self.PostscriptNameID:
-                self.postscriptName = record_str
+        style_name: str = ''
+        name_table = ttFont.get('name')
+        if name_table:
+            for record in name_table.names:  # 遍历名表
+                if record.nameID not in (self.FamilyNameID, self.SubfamilyNameID, self.FullNameID, self.PostscriptNameID):
+                    continue
+                record_str = self.decodeNameRecord(record).lower()  # 全部使用小写匹配
+                if not record_str:
+                    continue
+                if record.nameID == self.FamilyNameID:
+                    self.familyNames.add(record_str)
+                elif record.nameID == self.SubfamilyNameID:  # Style Name
+                    # 取出英文版的子族名，注：不同系统下的英文ID
+                    # Unicode: platformID=0, langID=1033; Mac: platformID=1, langID=0; Win: platformID=3, langID=1033.
+                    if (record.platformID, record.langID) in ((0, 1033), (1, 0), (3, 1033)):
+                        style_name = record_str
+                elif record.nameID == self.FullNameID:
+                    self.fullNames.add(record_str)
+                elif record.nameID == self.PostscriptNameID:
+                    self.postscriptName = record_str
 
-        if "OS/2" in ttFont:
-            os2 = ttFont["OS/2"]
+        os2 = ttFont.get("OS/2")
+        if os2: # 优先从OS/2表中读取字重和风格数值
             self.weight = os2.usWeightClass
             fs_selection = os2.fsSelection
             if fs_selection & 0x01:     # ITALIC flag
                 self.style = 2  # Italic
             elif fs_selection & 0x200:  # OBLIQUE flag
                 self.style = 1  # Oblique
+        elif style_name:    # 根据子族名判断粗斜体来替补
+            if 'bold italic' in style_name:
+                self.weight = 700
+                self.style = 2
+            elif 'bold' in style_name:
+                self.weight = 700
+            elif 'italic' in style_name:
+                self.style = 2
 
     @property
     def isBold(self) -> bool:

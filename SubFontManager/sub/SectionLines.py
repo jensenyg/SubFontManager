@@ -11,8 +11,8 @@ class SectionLines:
         :param section: 段的名字，如[Script Info], [V4+ Styles]等
         :param continuous: 是否是连贯行，连贯行会把多次append连接为一行
         """
-        self.sectionName = section  # 段名
-        self.continuous = continuous    # 是否是连贯行
+        self.sectionName: str = section # 段名
+        self.continuous: bool = continuous  # 是否是连贯行
         self.__lineList = []  # 本段内的行文本列表
 
     def append(self, lineStr: str) -> bool:
@@ -36,58 +36,68 @@ class SectionLines:
             return ''
 
     @staticmethod
-    def _splitLineString(lineStr: str, sep: str = ':', headLower: bool = True) -> tuple[str | None, str]:
+    def _splitLineString(lineStr: str, sep: str = ':') -> tuple[str, str]:
         """
         以':'为界切分行字串，并去除结果段首尾空格
         :param lineStr: 行字串
-        :param headLower: 前部字串转小写
         :return: 前部字串和后部字串组，如果找不到分隔符，则返回None和原字串
         """
         pos = lineStr.find(sep)
-        if pos == -1:
-            return None, lineStr
-        else:
-            head = lineStr[:pos].strip()
-            body = lineStr[pos + 1:].strip()
-            if headLower:
-                head = head.lower()
-            return head, body
+        return ('', lineStr) if pos == -1 else (lineStr[:pos].strip(), lineStr[pos + 1:].strip())
 
 
 class StyleDict(SectionLines):
     """用于维护所有Style的类，包括Style格式和所有Style内容"""
 
-    STYLE = 'style'
-    FORMAT = 'format'
-    # ASS默认的字段格式
-    DEFAULT_FORMAT = ['Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour',
-                      'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing', 'Angle',
-                      'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV', 'Encoding']
+    STYLE = 'Style'
+    FORMAT = 'Format'
+    SECTION_NAMES = ('[V4+ Styles]', '[V4 Styles]') # Style段有两个合法的名字
+    DEFAULT_FORMATS = {
+        # V4+ Styles的默认的字段格式
+        '[v4+ styles]': ('Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'OutlineColour',
+                         'BackColour', 'Bold', 'Italic', 'Underline', 'StrikeOut', 'ScaleX', 'ScaleY', 'Spacing',
+                         'Angle', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL', 'MarginR', 'MarginV',
+                          'Encoding'),
+        # V4 Styles的默认的字段格式
+        '[v4 styles]': ('Name', 'Fontname', 'Fontsize', 'PrimaryColour', 'SecondaryColour', 'TertiaryColour',
+                        'BackColour', 'Bold', 'Italic', 'BorderStyle', 'Outline', 'Shadow', 'Alignment', 'MarginL',
+                        'MarginR', 'MarginV', 'AlphaLevel', 'Encoding')
+    }
+    DEFAULT_FORMAT_CAPS: dict[str, str] = {s.lower(): s for fs in DEFAULT_FORMATS.values() for s in fs} # 大小写映射字典
+    DEFAULT_FORMAT_CAPS.update({s.lower(): s for s in SECTION_NAMES})   # 将段名也加入字典
+    INVALID_KEY = 'invalid,'    # 无效行的key，为防止key冲突，使用了正常语法中不会出现的','
 
-    def __init__(self, fieldNames: list[str] = None):
+    def __init__(self, name: str = '[V4+ Styles]'):
         """
-        :param fieldNames: 格式行字串，如Format: Name, Fontname,...
+        :param name: 段名字，为[V4+ Styles]或[V4 Styles]
         """
-        super().__init__('[V4+ Styles]')
+        super().__init__('')
         self._fieldNames: list[str] = []   # 样式名表 ['Name', 'Fontname',...]
-        self._fieldNameIndexes: dict[str, int] = {}  # 小写样式名和序号的映射 {'name': 0, 'fontname': 1,...}
+        self._fieldNameIndexes: dict[str, int] = {}  # 小写格式字段名和序号的映射 {'name': 0, 'fontname': 1,...}
         self._styles: dict[str, list[str]] = {}  # 样式值表 {'Default': ['Default','Arial','26',...]}
         self._nameIndex: int = 0     # 'Name'字段在Format中的位置序号
-        self._setFormat(fieldNames)  # 设置默认格式
+        self.__invalidLineNo: int = 0
+        self.init(name) # 初始化默认格式
 
-    def _setFormat(self, fieldNames: list[str] = None):
+    def init(self, name: str):
+        """初始化段名和默认格式"""
+        name = name.lower()
+        self.sectionName = self.DEFAULT_FORMAT_CAPS.get(name, name)
+        self._setFormat(self.DEFAULT_FORMATS[name])   # 设置默认格式
+
+    def _setFormat(self, fieldNames: list[str] | tuple[str, ...] = None):
         """
         设置样式行的格式
         :param fieldNames: 字段名表，如[Name, Fontname,...]
         """
         if not fieldNames:
-            fieldNames = self.DEFAULT_FORMAT
+            fieldNames = next(iter(self.DEFAULT_FORMATS.values()))
         self._fieldNames.clear()
         self._fieldNameIndexes.clear()
-        for i, s in enumerate(fieldNames):
-            s = s.lower()   # 全小写格式名，保存名字和序号，用于查找和比较
-            self._fieldNames.append(s)
-            self._fieldNameIndexes[s] = i
+        for i, f in enumerate(fieldNames):
+            f = f.lower()   # 全小写格式名，保存名字和序号，用于查找和比较
+            self._fieldNames.append(f)
+            self._fieldNameIndexes[f] = i
         if 'name' in self._fieldNameIndexes and 'fontname' in self._fieldNameIndexes:
             self._nameIndex = self._fieldNameIndexes['name']
         else:
@@ -102,36 +112,55 @@ class StyleDict(SectionLines):
             if line_name == self.FORMAT:    # Format行
                 self._setFormat(field_values)
             elif line_name == self.STYLE and self._fieldNameIndexes:    # Style行
-                self._styles[field_values[self._nameIndex].lower()] = field_values  # 用小写样式名索引，方便匹配'default'
-            else:
-                raise ValueError("Subtitle format error.")
+                # 用小写样式名索引，方便匹配'default'，并去掉前面可能有的*，*号不参与匹配
+                self._styles[field_values[self._nameIndex].lstrip('*')] = field_values
+            else:   # 无效行，原样保存在字典中，用于未来导出，
+                self._styles[f'{self.INVALID_KEY}{self.__invalidLineNo}'] = [lineStr]
+                self.__invalidLineNo += 1
         return False
 
-    def get(self, styleName: str, fieldName: str) -> str | None:
+    def get(self, styleName: str | list[str] | tuple[str], fieldName: str) -> str | None:
         """
-        获取指定样式的指定字段值
-        :param styleName: 样式名，找不到则以Default替代
+        获取指定样式名中的指定字段值。如果样式名是单一字串，则按样式名查找字段值，找不到则用Default替代；
+        如果样式名是列表，将会按顺序尝试查找字段值，如果都找不到字段值，则返回None
+        :param styleName: 样式名或样式名列表
         :param fieldName: 样式字段名
         :return: 样式字段值，找不到则返回None
         """
-        style_values = self._styles.get(styleName.lower(), self._styles.get('default'))
-        return style_values[self._fieldNameIndexes[fieldName.lower()]] if style_values else None
+        # 用小写样式名去掉前面可能有的*来查找样式值，找不到则用Default替代
+        if not self._fieldNameIndexes:
+            return None
+
+        field_values = None
+        if isinstance(styleName, str):
+            field_values = self._styles.get(styleName.lstrip('*'))
+            if not field_values:
+                field_values = self._styles.get('Default')
+        elif isinstance(styleName, (list, tuple)):
+            for style_name in styleName:
+                field_values = self._styles.get(style_name.lstrip('*'))
+                if field_values:
+                    break
+        # 注意字段名大小写不敏感而样式名大小写敏感
+        return field_values[self._fieldNameIndexes[fieldName.lower()]] if field_values else None
 
     def toString(self) -> str:
         """把整个样式段都输出为字幕文本"""
         if self._styles:
             return '\n'.join([
                 self.sectionName,   # 段名，如[V4+ Styles]
-                # 格式行，如Format: Name, Fontname,...
-                f"{self.FORMAT.capitalize()}: {', '.join(self._fieldNames)}",
+                # 格式行，如Format: Name, Fontname,...，大小写标准化
+                f"{self.FORMAT}: {', '.join(self.DEFAULT_FORMAT_CAPS.get(f, f) for f in self._fieldNames)}",
                 # 样式行，如Style: Default,...
-                *[f"{self.STYLE.capitalize()}: {','.join(values)}" for values in self._styles.values()]
+                *[v[0] if k.startswith(self.INVALID_KEY) else f"{self.STYLE}: {','.join(v)}"
+                  for k, v in self._styles.items()]
             ])
         else:
             return ''
 
     def __iter__(self):
-        return iter(self._styles)
+        # 返回迭代器时排除无效的行
+        return iter(k for k in self._styles if not k.startswith(self.INVALID_KEY))
 
 
 class FontDict(dict[str, list[str]], SectionLines):
@@ -139,7 +168,7 @@ class FontDict(dict[str, list[str]], SectionLines):
     用于维护所有内嵌字体的类，包括字体名和二进制字体内容. 注意ASS内嵌字体只支持TTF，不支持TTC.
     其中键为内嵌字体名，值为所有同名字体的数据字串列表，字幕文件中保存的多行数据被合并为一行保存.
     """
-    FONTNAME_PREFIX = 'fontname:'
+    FONTNAME_PREFIX = 'fontname:'   # 字体编码数据前一行的名字前缀，规定全小写
     LINE_LENGTH = 80    # 内嵌字体数据自动折行长度
 
     def __init__(self):
@@ -236,17 +265,19 @@ class FontDict(dict[str, list[str]], SectionLines):
 class DialogueList(SectionLines):
     """用于维护所有Dialogue行的类，包括Dialogue格式和所有Dialogue内容"""
 
-    FORMAT = 'format'
-    DIALOGUE = 'dialogue'
+    FORMAT = 'Format'
+    DIALOGUE = 'Dialogue'
     # ASS默认的格式
-    DEFAULT_FORMAT = ['Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text']
+    DEFAULT_FORMAT = ('Layer', 'Start', 'End', 'Style', 'Name', 'MarginL', 'MarginR', 'MarginV', 'Effect', 'Text')
+    DEFAULT_FORMAT_CAPS: dict[str, str] = {s.lower(): s for s in DEFAULT_FORMAT}    # 默认格式的大小写映射
 
-    def __init__(self, fieldNames: list[str] = None):
+    def __init__(self):
         super().__init__('[Events]')
         self._fieldNames: list[str] = []   # 样式名表 ['Name', 'Fontname',...]
         self._fieldNameIndexes: dict[str, int] = {}  # 小写样式名和序号的映射 {'name': 0, 'fontname': 1,...}
-        self._dialogueList = []    # [[fields]]
-        self._setFormat(fieldNames)  # 设置格式
+        # 对Dialogue行，保存拆分的字段值，对其他行如Comment，原文保存
+        self._dialogueList: list[list[str] | str] = []  # [[fields] | str]
+        self._setFormat()   # 设置格式
 
     def _setFormat(self, fieldNames: list[str] = None):
         """
@@ -257,13 +288,11 @@ class DialogueList(SectionLines):
             fieldNames = self.DEFAULT_FORMAT
         self._fieldNames.clear()
         self._fieldNameIndexes.clear()
-        for i, s in enumerate(fieldNames):
-            s = s.lower()   # 全小写格式名，保存名字和序号，用于查找和比较
-            self._fieldNames.append(s)
-            self._fieldNameIndexes[s] = i
-        if 'name' in self._fieldNameIndexes and 'text' in self._fieldNameIndexes:
-            self._nameIndex = self._fieldNameIndexes['name']
-        else:
+        for i, f in enumerate(fieldNames):
+            f = f.lower()   # 格式字段名全用小写，保存名字和序号，用于查找和比较
+            self._fieldNames.append(f)
+            self._fieldNameIndexes[f] = i
+        if 'style' not in self._fieldNameIndexes or 'text' not in self._fieldNameIndexes:
             raise ValueError("Subtitle format error.")
 
     def append(self, lineStr: str) -> bool:
@@ -278,21 +307,27 @@ class DialogueList(SectionLines):
                 # 切分字段值，最多切分为字段名数量分组，最后一个字段值（即Text）内可包含','
                 field_values = [s.strip() for s in line_content.split(',', len(self._fieldNameIndexes) - 1)]
                 self._dialogueList.append(field_values)
-            else:
-                raise ValueError("Subtitle format error.")
+            else:   # 其他行任意名，如Comment，直接保存字串，与Dialogue行的list以类型区分
+                self._dialogueList.append(lineStr)
         return False
 
     def get(self, index: int, fieldName: str) -> str:
+        """获取序号指定的Dialogue行的字段值，只能对Dialogue行执行，其他行名的不行"""
         return self._dialogueList[index][self._fieldNameIndexes[fieldName.lower()]]
+
+    def isValid(self, index: int):
+        """返回序号指定的行是否是有效的Dialogue行"""
+        return isinstance(self._dialogueList[index], list)  # 用数据类型来区分行类型
 
     def toString(self) -> str:
         if self._dialogueList:
             return '\n'.join([
                 self.sectionName,  # 段名，[Events]
-                # 格式行，如Format: Name, Fontname,...
-                f"{self.FORMAT.capitalize()}: {', '.join(self._fieldNames)}",
+                # 格式行，如Format: Name, Fontname,...，大小写标准化
+                f"{self.FORMAT}: {', '.join(self.DEFAULT_FORMAT_CAPS.get(f, f) for f in self._fieldNames)}",
                 # 对白行，如Dialogue:...
-                *[f"{self.DIALOGUE.capitalize()}: {','.join(values)}" for values in self._dialogueList]
+                *[f"{self.DIALOGUE}: {','.join(content)}" if isinstance(content, list) else content
+                  for content in self._dialogueList]
             ])
         else:
             return ''

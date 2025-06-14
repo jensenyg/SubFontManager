@@ -5,7 +5,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from utils import App, Lang
 import ui
-from font import Font, FontManager, SubStationAlpha
+from font import Font, FontManager
+from sub import SubStationAlpha
 
 
 class TaskType(Flag):
@@ -34,6 +35,7 @@ class RowItem:
     sourceWidget: ui.Combobox | None  # 文件源组合框控件
     bold: bool      # 是否粗体
     italic: bool    # 是否斜体
+    matchedPath: str    # 匹配到的字体路径
     font: Font | None   # 字体对象
     valid: bool     # 字体是否有效，通常指内嵌字体
     modified: bool = False  # 字体内嵌状态是否被修改，用于决定该行显示为粗体
@@ -41,7 +43,7 @@ class RowItem:
 
 
 @dataclass
-class EmbedFont:
+class EmbeddingInfo:
     """需要内嵌的字体信息"""
     fontName: str   # 字体的内嵌文件名，即fontname:行的内容
     refNames: list[str]  # 被引用的名字表，用于在子集化后的字体中保留这些名字
@@ -63,7 +65,7 @@ class FontList(ui.WidgetTable):
         """Source Combobox Options"""
         EMBED = '<%s>' % Lang['Use embedded font']
         SYSTEMFONT = '<%s>' % Lang['Use system font']
-        SRCDIR = '<%s>' % Lang['Use font from same diretory']
+        SRCDIR = '<%s>' % Lang['Use font from same directory']
         BROWSE = '<%s...>' % Lang['Select font path manually']
         EXTRACT = '<%s...>' % Lang['Extract embedded font']
         NOSRC = '<%s>' % Lang['No source']
@@ -140,18 +142,19 @@ class FontList(ui.WidgetTable):
                 isEmbed=fontDesc.isEmbed,   # 当前找到的字体源是否是内嵌字体
                 bold=fontDesc.bold,         # 是否粗体
                 italic=fontDesc.italic,     # 是否斜体
-                font=fontDesc.font,         # 行关联的字体对象，可用于嵌入
+                matchedPath='' if fontDesc.font is None else fontDesc.font.path,    # 按系统逻辑匹配到的字体路径
+                font=fontDesc.font,         # 行关联的字体对象，可根据用户选择重新匹配
                 valid=fontDesc.valid        # 字体是否有效
             )
 
             if row_item.isEmbed:  # 如果是内嵌字体
                 row_item.embed.set(row_item.valid)  # 对有效字体勾上内嵌复选框
                 row_item.subset.set(False)  # 内嵌字体默认不勾选子集化复选框
-                row_item.source.set(self.EMBED_NAME_PREFIX + row_item.font.path)  # 文件源设置为embed:/...
+                row_item.source.set(self.EMBED_NAME_PREFIX + row_item.matchedPath)  # 文件源设置为embed:/...
             else:
                 row_item.embed.set(False)   # 不勾内嵌复选框
                 row_item.subset.set(True)   # 勾上集化复选框
-                row_item.source.set(row_item.font.path if row_item.font else '')  # 填写文件源组合框
+                row_item.source.set(row_item.matchedPath)  # 填写文件源组合框
                 # 非内嵌字体的条目不应该有使用提取内嵌字体的选项，去掉两个列表选项
                 row_item.sourceOptions.remove(self.SrcCmbOptions.EMBED)
                 row_item.sourceOptions.remove(self.SrcCmbOptions.EXTRACT)
@@ -207,7 +210,7 @@ class FontList(ui.WidgetTable):
                 if row_item.embed.get():    # 已勾选内嵌框
                     if file_path.startswith(self.EMBED_NAME_PREFIX):    # 填写的内嵌路径
                         file_path = file_path[len(self.EMBED_NAME_PREFIX):] # 切掉路径头的embed:/
-                        if file_path == row_item.font.path: # 填写路径和现有路径相同
+                        if file_path == row_item.matchedPath:   # 填写路径和现有匹配路径相同
                             if row_item.subset.get():   # 子集化勾选
                                 row_item.taskType = TaskType.SUBSETTING | TaskType.EMBEDDING    # 内嵌字体子集化
                         else:   # 这是从一个内嵌源改为另一个，无意义的
@@ -299,15 +302,15 @@ class FontList(ui.WidgetTable):
         fontList_bak = self.subtitleObj.fontDict.copy()  # 万一写入错误时用来恢复的备份
 
         # 合并重复的需要内嵌的字体，删除需要删除的内嵌字体 -------------
-        embed_fonts: dict[str, EmbedFont] = {}  # 按Postscript名索引待内嵌字体，用于合并重复的字体源
+        fonts_to_embed: dict[str, EmbeddingInfo] = {}  # 按文件路径索引的待内嵌字体，用于合并重复的字体源
         for row_item in row_items:
             font = row_item.font
             # 如果任务包括删除内嵌操作 -------
             if TaskType.UNEMBEDDING in row_item.taskType:
                 # 内嵌字体可能是多个行的文件源，所以该字体可能已经被删除过了，因此需要检查一下
-                font_codes = self.subtitleObj.fontDict.get(font.path, [])
+                font_codes = self.subtitleObj.fontDict.get(row_item.matchedPath, [])
                 if len(font_codes) == 1:
-                    self.subtitleObj.fontDict.pop(font.path)
+                    self.subtitleObj.fontDict.pop(row_item.matchedPath)
                 elif font_codes:
                     font_codes.pop(font.index)
 
@@ -328,21 +331,20 @@ class FontList(ui.WidgetTable):
                     embed_name = font.path  # 直接保留原内嵌名字不变
 
                 # 合并到待嵌入字体表 -------
-                if font.postscriptName in embed_fonts:  # 如果字体已存在，合并多次引用
-                    embed_fonts[font.postscriptName].merge(
-                        row_item.fontName, row_item.text, row_item.subset.get())
+                if font.path in fonts_to_embed: # 如果字体已存在，合并多次引用
+                    fonts_to_embed[font.path].merge(row_item.fontName, row_item.text, row_item.subset.get())
                 else:   # 如果不存在，新建内嵌字体信息
-                    embed_fonts[font.postscriptName] =\
-                        EmbedFont(embed_name, [row_item.fontName.lower()], row_item.text, row_item.subset.get(), font)
+                    fonts_to_embed[font.path] = EmbeddingInfo(
+                        embed_name, [row_item.fontName.lower()], row_item.text, row_item.subset.get(), font)
 
         # 执行内嵌 -------------
         try:
-            for embed_font in embed_fonts.values(): # 遍历每一个待内嵌字体并执行内嵌
-                font = embed_font.font
-                if embed_font.subset:   # 子集化
-                    font.subset(''.join(embed_font.text), embed_font.refNames)
-                    font.path = embed_font.fontName # 子集化之后字体会变内存字体，原路径失去意义，换成内嵌名
-                self.subtitleObj.fontDict.add(font.read(), embed_font.fontName, font.index, True)   # 内嵌
+            for embed_info in fonts_to_embed.values():  # 遍历每一个待内嵌字体并执行内嵌
+                font = embed_info.font
+                if embed_info.subset:   # 子集化
+                    font.subset(''.join(embed_info.text), embed_info.refNames)
+                    font.path = embed_info.fontName # 子集化之后字体会变内存字体，原路径失去意义，换成内嵌名
+                self.subtitleObj.fontDict.add(font.read(), embed_info.fontName, font.index, True)   # 内嵌
             self.subtitleObj.save(savePath)  # 保存字幕文件
         except Exception as e:   # 内嵌或删除内嵌或保存文件出错
             self.subtitleObj.fontDict = fontList_bak
@@ -359,7 +361,7 @@ class FontList(ui.WidgetTable):
         # 条目修改状态逻辑
         if rowItem.isEmbed:
             rowItem.modified = (not rowItem.embed.get() or rowItem.subset.get()
-                                or rowItem.sourceWidget.get() != cls.EMBED_NAME_PREFIX + rowItem.font.path)
+                                or rowItem.sourceWidget.get() != cls.EMBED_NAME_PREFIX + rowItem.matchedPath)
         else:
             rowItem.modified = rowItem.embed.get()
         # 根据修改状态设置粗体
@@ -412,12 +414,12 @@ class FontList(ui.WidgetTable):
 
     def onSourceComboSelect(self, rowItem: RowItem):
         """文件源组合框选项选择"""
-        cmb_src = rowItem.sourceWidget
-        src_text = cmb_src.getRaw()
-        src_text_new = ''
+        cmb_src = rowItem.sourceWidget  # 组合框对象
+        src_text = cmb_src.getRaw() # 组合框内的文本
+        src_text_new = ''   # 组合款内的新内容
 
         if src_text == self.SrcCmbOptions.EMBED:         # 使用内嵌字体，能选择这个选项的都是内嵌字体
-            src_text_new = self.EMBED_NAME_PREFIX + rowItem.font.path    # 将文件源内的路径设置为embed:/...
+            src_text_new = self.EMBED_NAME_PREFIX + rowItem.matchedPath    # 将文件源内的路径设置为embed:/...
         elif src_text == self.SrcCmbOptions.SYSTEMFONT:  # 使用系统字体
             font = self.subtitleObj.fontMgr.match(rowItem.fontName, rowItem.bold, rowItem.italic, FontManager.SYSTEM)
             src_text_new = font.path if font else ''
