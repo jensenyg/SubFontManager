@@ -201,6 +201,37 @@ class FontList(ui.WidgetTable):
         row_items: list[RowItem] = [r.data for r in self._rows if not r.isSep]  # 去掉分割行，获取所有的行信息
         warnings: list[str] = []  # 警告文本列表
 
+        # 检查是否有多个同家族字体未全部内嵌 -------------
+        row_dict: dict[str, list[RowItem]] = {} # 用字体名索引行信息，用于合并同字体的多个行
+        for row_item in row_items:  # 合并同家族名的字体行
+            if not row_item.isEmbed:    # 仅限外部字体源
+                if row_item.fontName in row_dict:
+                    row_dict[row_item.fontName].append(row_item)
+                else:
+                    row_dict[row_item.fontName] = [row_item]
+
+        problematic_font_names = [] # 有问题的字体名表
+        for name, items in row_dict.items():
+            if len(items) > 1:  # 同家族多个字体，且嵌入选择不一致的
+                embed = items[0].embed.get()
+                if next((row_item for row_item in items if row_item.embed.get() != embed), None):
+                    problematic_font_names.append(name)
+
+        if problematic_font_names:
+            answer = messagebox.askyesnocancel(Lang['Reminding'],
+                Lang["Fonts {ff} contain multiple styles, but not all of them have been selected for embedding. "
+                     "This may cause subtitle display issues, as unembedded styles will still reference the "
+                     "embedded styles as their source during playback, resulting in incorrect rendering. "
+                     "Do you want to embed all other styles of these font?"]
+                     .format(ff=f'"{'", "'.join(problematic_font_names)}"'))
+            if answer is None:  # 选择取消
+                return False    # 表示操作取消
+            elif answer is True:    # 选择是，把同字体的其他行都勾选上
+                for name in problematic_font_names:
+                    for row_item in row_dict[name]:
+                        row_item.embed.set(True)    # 勾选同字体的其他行
+            # else # 选择否，原样不动
+
         # 确定每行的任务类型、文件是否存在，以及文件内是否都包含指定的字体 -------------
         for row_item in row_items:
             file_path = row_item.sourceWidget.get() # 文件源组合款内的值
@@ -265,29 +296,6 @@ class FontList(ui.WidgetTable):
         if warnings and not messagebox.askyesno(Lang['Reminding'],
                 '\n'.join(warnings) + '\n' + Lang["embedding them directly may significantly increase the "
                                                   "file size of subtitle, are you sure you want to proceed?"]):
-            return False    # 表示操作取消
-
-        # 检查是否有多个同家族字体未全部内嵌 -------------
-        font_dict: dict[str, list[RowItem]] = {}
-        for row_item in row_items:  # 合并同家族名的字体行
-            if not row_item.isEmbed:    # 仅限外部字体源
-                if row_item.fontName in font_dict:
-                    font_dict[row_item.fontName].append(row_item)
-                else:
-                    font_dict[row_item.fontName] = [row_item]
-
-        problematic_font_names = [] # 有问题的字体名表
-        for name, items in font_dict.items():
-            if len(items) > 1:  # 同家族多个字体，且嵌入选择不一致的
-                embed = items[0].embed.get()
-                if next((row_item for row_item in items if row_item.embed.get() != embed), None):
-                    problematic_font_names.append(name)
-
-        if problematic_font_names and not messagebox.askyesno(Lang['Reminding'],
-                Lang["Fonts {ff} contain multiple styles, but not all of them have been selected for embedding. "
-                     "This may cause subtitle display issues, as unembedded styles will still reference the "
-                     "embedded styles as their source during playback, resulting in incorrect rendering. "
-                     "Are you sure you want to proceed?"].format(ff=f'"{'", "'.join(problematic_font_names)}"')):
             return False    # 表示操作取消
 
         return True

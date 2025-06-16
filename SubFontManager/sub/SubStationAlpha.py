@@ -7,6 +7,11 @@ from font import Font, FontManager
 from .SectionLines import *
 
 
+class SubException(Exception):
+    """自定义异常类"""
+    pass
+
+
 @dataclass
 class SubFontDesc:
     """SubStationAlpha.gatherFonts返回的字体描述类"""
@@ -44,9 +49,15 @@ class SubFontDescDict(dict[tuple[str, bool, bool], SubFontDesc]):
         """向字典中加入字体并合并覆盖的文字"""
         if not fontName:
             return
+        # 处理参数格式 ------
+        fontName = fontName.lstrip('@') # 字体名前面的@表示旋转90度，引用的字体文件还是同一个
         bold = self.toBool(bold)
         italic = self.toBool(italic)
-        # 向字典中加入字体覆盖的文字 ----------
+        # 将SSA中允许的三种转义字符替换掉
+        text = (text.replace('\\N', '') # 硬回车替换为空
+                .replace('\\n', '')     # 软回车替换为空
+                .replace('\\h', ' '))   # \h替换为空格
+        # 向字典中加入字体覆盖的文字 ------
         key = (fontName.lower(), bold, italic)  # 字典的访问键
         chars = set(c for c in text)    # 将每一个字符单独加入set，合并重复字符
         if key in self:
@@ -65,7 +76,7 @@ class SubStationAlpha:
     _inlineContent_ptn = re.compile(r'\{(.+?)}')        # 用于查找行内样式{}的内容
     _inlineStyle_ptn = re.compile(r'\\\s*r([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
     _inlineFont_ptn = re.compile(r'\\\s*fn([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
-    _inlineBold_ptn = re.compile(r'\\\s*b\s*(\d+)')     # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord混淆
+    _inlineBold_ptn = re.compile(r'\\\s*b\s*(\d+)')     # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord\blur\be混淆
     _inlineItalic_ptn = re.compile(r'\\\s*i\s*(\d+)')   # 用于查找{}内的\i并提取后面的数字
     _section_ptn = re.compile(r'^\[.*]')    # 匹配中括号行[...]
 
@@ -100,9 +111,9 @@ class SubStationAlpha:
         :return: SubStationAlpha实例
         """
         if not os.path.isfile(path):
-            raise Exception(Lang["File {p} doesn't exist."].format(p=path))
+            raise SubException(Lang["File {p} doesn't exist."].format(p=path))
         elif not os.access(path, os.R_OK):
-            raise Exception(Lang['Unable to read file {p}.'].format(p=path))
+            raise SubException(Lang['Unable to read file {p}.'].format(p=path))
         else:
             return cls(path, encoding)
 
@@ -113,7 +124,7 @@ class SubStationAlpha:
             if match:
                 encoding = match.encoding
             else:
-                raise Exception(Lang["Subtitle encoding cannot be recognized."])
+                raise SubException(Lang["Encoding could not be recognized."])
 
         sections: dict[str, SectionLines] = {   # Section按名索引表
             self.infoList.sectionName.lower(): self.infoList,
@@ -144,8 +155,8 @@ class SubStationAlpha:
                         continue
                 try:
                     continuous_section = section.append(line)   # 向SectionLines插入新行
-                except ValueError:
-                    raise Exception(Lang["Line {d} format error."].format(d=i+1))
+                except:
+                    raise SubException(Lang["Line {d} format error."].format(d=i+1))
 
     def save(self, path: str = None, encoding: str = None):
         """
@@ -158,7 +169,7 @@ class SubStationAlpha:
         path_exists = os.path.exists(path)  # 路径是否已存在，不存在说明是要保存为新文件
         if (path_exists and not os.access(path, os.W_OK) or  # 原地保存却无法访问文件
                 not path_exists and not os.access(os.path.dirname(path) or '..', os.W_OK)):  # 新建文件却目录无法访问
-            raise Exception(Lang['Unable to write file {p}.'].format(p=path))
+            raise SubException(Lang['Unable to write file {p}.'].format(p=path))
         if not encoding:
             encoding = 'utf-8'    # 默认使用UTF-8编码
 

@@ -31,7 +31,7 @@ class SectionLines:
     def toString(self) -> str:
         """把整个Section段都输出为字幕文本"""
         if self.__lineList:
-            return '\n'.join([self.sectionName] + self.__lineList)
+            return '\n'.join([self.sectionName, *self.__lineList])
         else:
             return ''
 

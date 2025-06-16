@@ -5,7 +5,7 @@ from tkinter import ttk, filedialog, messagebox
 from tkinterdnd2 import TkinterDnD, DND_FILES
 from utils import App, Lang
 import ui
-from sub import SubStationAlpha
+from sub import SubStationAlpha, SubException
 from .FontList import FontList
 from .SettingsWindow import SettingsWindow
 
@@ -152,7 +152,9 @@ class MainWindow:
             self.fontList.loadSubtitle(subtitleObj) # 载入字体列表
         except Exception as e:  # 载入出错，弹窗告知
             traceback.print_exc()   # 打印异常信息到控制台
-            messagebox.showerror(Lang['Error'], f"{Lang['Subtitle file reading error:']}\n{str(e)}")
+            messagebox.showerror(Lang['Error'], f"{Lang['Subtitle file reading error']}:\n{str(e)}"
+                                 if isinstance(e, SubException) or App.inDev else
+                                 f"{Lang['Subtitle file reading error']}.")
             self.loadBtn.focus_force()  # 手动取回焦点
             self.fontList.clearRows()   # 清除可能已经载入的部分行
             self.statusBar.set(Lang["Open failed."], duration=3)    # 设置状态栏文字
@@ -166,16 +168,18 @@ class MainWindow:
     def onApplyBtn(self):
         """点击应用按钮"""
         try:
-            if self.fontList.checkTaskValidity():   # 检查任务配置是否正确
+            task_ok = self.fontList.checkTaskValidity() # 检查任务配置是否正确
+            self.applyBtn.focus_force() # 可能弹过窗，需手动取回焦点
+            if task_ok: # 任务已确认可执行
                 self.statusBar.set(Lang["Executing..."])
                 self.statusBar.update()  # 立刻刷新界面，否则就卡住看不到了
                 self.fontList.applyEmbedding(self.dstEntry.get())   # 执行嵌入
             else:   # 任务无法执行或者被取消
-                self.applyBtn.focus_force()  # 出现过弹窗，需手动取回焦点
                 return
         except Exception as e:  # 嵌入出错
             traceback.print_exc()   # 打印异常信息到控制台
-            messagebox.showerror(Lang['Error'], f"{Lang['Execution error:']}\n{str(e)}")
+            messagebox.showerror(Lang['Error'], f"{Lang['Execution error']}:\n{str(e)}"
+                                 if App.inDev else f"{Lang['Execution error']}.")
             self.applyBtn.focus_force()  # 弹窗后，需手动取回焦点
             self.statusBar.set(Lang["Execution failed."], duration=3)
         else:   # 嵌入成功

@@ -11,11 +11,11 @@ class App:
     isWindows = sys.platform == 'win32' # 当前是否Windows系统
     name = version.__appname__  # 本程序的名称
     dirName, exeName = os.path.split(sys.argv[0])   # 程序文件的路径和名称
-    isInDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
+    inDev = exeName.endswith('.py')    # 程序是否处于IDE开发状态
     dpiScale = 1.0    # DPI缩放比例
 
     Config = ConfigParserWraper(    # 程序配置对象，可读写配置
-        os.path.join('.' if isInDev else
+        os.path.join('.' if inDev else
                      (os.path.join(os.path.expanduser('~/Library/Application Support'), name)
                       if isMac else sys._MEIPASS), 'config.ini')
     )
@@ -35,7 +35,7 @@ class App:
     @classmethod
     def getResourcesDirectory(cls) -> str:
         """获取程序数据路径"""
-        if cls.isInDev:
+        if cls.inDev:
             path = '.'
         elif cls.isMac:
             path = os.path.join(os.path.dirname(cls.dirName), 'Resources')
