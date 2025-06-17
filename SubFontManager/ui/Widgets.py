@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, font as tkfont
+from tkinter import ttk, font as tkfont, Event
 from utils import App
 
 
@@ -128,14 +128,14 @@ class Entry(ttk.Entry, StyledWidget):
         super().insert(index, string)
         self._isblank = super().get() == ''
 
-    def onFocusIn(self, event=None):
+    def onFocusIn(self, event: Event = None):
         """焦点进入事件响应"""
         self._focusIn = True
         if self._isblank:
             self.delete(0, tk.END)
             self.setStyle(True)
 
-    def onFocusOut(self, event=None):
+    def onFocusOut(self, event: Event = None):
         """焦点离开事件响应"""
         self._focusIn = False
         self._isblank = super().get() == ''
@@ -180,7 +180,7 @@ class Combobox(ttk.Combobox, Entry):
             self._isblank = ttk.Combobox.get(self) == ''
         return self._isblank
 
-    def onMouseWheel(self, event):
+    def onMouseWheel(self, event: Event):
         """鼠标滚应事件响应"""
         # 让事件跳过本控件，直接传给父控件，即不滚动下拉菜单，直接滚动整个列表
         self.master.event_generate('<MouseWheel>', delta=event.delta)

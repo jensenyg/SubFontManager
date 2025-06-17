@@ -31,13 +31,13 @@ class SettingsWindow(ui.PopupWindow):
         tk.Label(self, text='Version ' + Version.__version__).pack(side=tk.TOP, padx=gap)
         text = tk.Label(self, text='Developed by Jensen')
         text.pack(side=tk.TOP, padx=gap)
-        height += text.winfo_reqheight()
+        height += text.winfo_reqheight() * 2
 
         # 添加Email
         email_frame = tk.Frame(self)
         email_frame.pack(side=tk.TOP, padx=gap)
         tk.Label(email_frame, text='Email:').pack(side=tk.LEFT)
-        email_label = tk.Label(email_frame, text=Version.__email__, fg="blue")
+        email_label = tk.Label(email_frame, text=Version.__email__, fg="blue")    # 不设置鼠标指针，因为tkinter的指针太丑了
         email_label.pack(side=tk.LEFT)
         email_label.bind("<Button-1>", lambda e: webbrowser.open_new('mailto:' + Version.__email__))
         height += text.winfo_reqheight()
@@ -66,8 +66,9 @@ class SettingsWindow(ui.PopupWindow):
         ok_btn = ttk.Button(self, text=Lang['OK'], command=self.onOkBtn)
         ok_btn.pack()
         ok_btn.focus_set()
-        height += ok_btn.winfo_reqheight() + 4 * gap
-        
+        height += ok_btn.winfo_reqheight()
+
+        height += 2 * gap
         ui.placeWindow(self, width=400*App.dpiScale, height=height, yRatio=0.4)
         master.wait_window(self)    # 本窗口关闭前父窗口等待
 

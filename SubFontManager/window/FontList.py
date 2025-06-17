@@ -1,8 +1,9 @@
 import os
 from dataclasses import dataclass
 from enum import Flag, auto
+from functools import partial
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, Event
 from utils import App, Lang
 import ui
 from font import Font, FontManager
@@ -158,18 +159,17 @@ class FontList(ui.WidgetTable):
                 # 非内嵌字体的条目不应该有使用提取内嵌字体的选项，去掉两个列表选项
                 row_item.sourceOptions.remove(self.SrcCmbOptions.EMBED)
                 row_item.sourceOptions.remove(self.SrcCmbOptions.EXTRACT)
-            # 这里使用了一个闭包技巧，利用函数的默认参数是在定义时计算的特点，将此时的row_item传给回调函数
-            row_item.source.trace_add('write', lambda v, t, m, r=row_item: self.onSourceChange(r))
 
             # 添加行和行内控件 --------------
             row_frame = self.newRow()   # 新行
             # Checkbox：是否内嵌
             row_item.embedWidget = ui.Checkbox(row_frame, variable=row_item.embed, text='')
-            row_item.embedWidget.bind("<Button-1>", lambda e, r=row_item: self.onEmbedClicked(r))
+            # row_item.embedWidget.bind("<ButtonRelease-1>", partial(self.onEmbedClicked, rowItem=row_item))
+            row_item.embedWidget.bind("<ButtonRelease-1>", partial(self.onEmbedClicked, rowItem=row_item))
             row_frame.addCell(row_item.embedWidget, padx=(8 if App.isMac else 11, 0))
             # Label：字体名，无效字体加删除线和后缀，因为Mac下不支持文字删除线
             row_item.fontNameWidget = ui.Label(row_frame, overstrike=not row_item.valid, anchor=tk.W,
-                text=row_item.fontName + (' (invalid)' if not row_item.valid else ''))
+                text=row_item.fontName + (f' {Lang['(Corrupted)']}' if not row_item.valid else ''))
             row_frame.addCell(row_item.fontNameWidget, pady=(0, 1))
             # Label：样式名
             row_frame.addCell(ui.Label(row_frame, text=row_item.styleName, overstrike=not row_item.valid,
@@ -179,17 +179,18 @@ class FontList(ui.WidgetTable):
             # Checkbox：子集化
             row_item.subsetWidget = ui.Checkbox(row_frame, variable=row_item.subset,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED)
-            row_item.subsetWidget.bind("<Button-1>", lambda e, r=row_item: self.onSubsetClicked(r))
+            row_item.subsetWidget.bind("<ButtonRelease-1>", partial(self.onSubsetClicked, rowItem=row_item))
             row_frame.addCell(row_item.subsetWidget, padx=(8 if App.isMac else 11, 0))
             # Combobox：文件源
             row_item.sourceWidget = ui.Combobox(row_frame, placeholder=self.SrcCmbOptions.NOSRC, background=self.bg,
                                                 state=tk.NORMAL if row_item.valid else tk.DISABLED,
                                                 textvariable=row_item.source, values=row_item.sourceOptions)
-            row_item.sourceWidget.bind("<<ComboboxSelected>>", lambda e, r=row_item: self.onSourceComboSelect(r))
+            row_item.sourceWidget.bind("<<ComboboxSelected>>", partial(self.onSourceComboSelect, rowItem=row_item))
+            row_item.source.trace_add('write', partial(self.onSourceChange, rowItem=row_item))
             row_frame.addCell(row_item.sourceWidget)
 
             row_frame.data = row_item   # 让row_item跟着行走
-            self.addRow(row_frame)      # 添加行
+            # self.addRow(row_frame)      # 添加行
             self.setRowStatus(row_item) # 设置行内各个控件的启用禁用状态
 
         self.update_idletasks()  # 应用挂起的控件修改，否则可能不立刻更新
@@ -375,52 +376,52 @@ class FontList(ui.WidgetTable):
         # 根据修改状态设置粗体
         rowItem.fontNameWidget.setBold(rowItem.modified)
 
-    def onEmbedClicked(self, rowItem: RowItem):
+    def onEmbedClicked(self, event: Event, rowItem: RowItem):
         """内嵌复选框状态改变"""
-        # cget返回的不是str类型，直接判断不一定准确，所以先转str
-        if str(rowItem.embedWidget.cget('state')) == 'disabled':    # 禁用的控件不用响应
-            return 'break'
-        checked = not rowItem.embed.get()
-        char_count = len(rowItem.text)
-        if not rowItem.embed.get() and (char_count >= self.WARNING_MAX_CHAR_COUNT or char_count == 0):
-            self.update_idletasks()    # 重绘界面，否则在下面的弹窗期间行选择状态不会更新
+        if (not (0 <= event.x <= event.widget.winfo_width() and 0 <= event.y <= event.widget.winfo_height())
+                and str(rowItem.embedWidget.cget('state')) == 'disabled'):  # 禁用的控件和控件区域之外的事件不用响应
+            return
+
+        if not rowItem.embed.get(): # 注意这里能获得的是变更之前的状态
+            char_count = len(rowItem.text)
             font_name_style = f"{rowItem.fontName} {Lang[rowItem.styleName]}"
-            checked = (
-                # 无效内嵌字体警告
-                (not rowItem.valid and messagebox.askokcancel(Lang['Reminding'],
-                    Lang['Embedded font file "{f}" is invalid, are you sure you want to keep it in the subtitle file?']
-                        .format(f=rowItem.fontName)))
-                # 嵌入字符过多警告
-                or (char_count >= self.WARNING_MAX_CHAR_COUNT and messagebox.askokcancel(Lang['Reminding'],
+            checked: bool | None = None
+            if not rowItem.valid:   # 无效内嵌行警告
+                checked = messagebox.askokcancel(Lang['Reminding'],
+                    Lang['Embedded font file "{f}" is corrupted, are you sure you want to keep it in the subtitle file?']
+                        .format(f=rowItem.fontName))
+            elif char_count == 0:   # 覆盖字符为0警告
+                checked = messagebox.askokcancel(Lang['Reminding'],
+                    Lang['Font "{fs}" does not cover any charactor, are you sure you want to embed it?']
+                        .format(fs=font_name_style))
+            elif char_count >= self.WARNING_MAX_CHAR_COUNT: # 覆盖字符过多警告
+                checked = messagebox.askokcancel(Lang['Reminding'],
                     Lang['Font "{fs}" covers {c} charactors, embedding it may significantly increase '
                          'the size of the subtitle file, are you sure you want to proceed?']
-                        .format(fs=font_name_style, c=char_count)))
-                # 未覆盖任何字符警告
-                or (rowItem.valid and char_count == 0 and messagebox.askokcancel(Lang['Reminding'],
-                    Lang['Font "{fs}" does not cover any charactor, are you sure you want to embed it?']
-                        .format(fs=font_name_style)))
-            )
-            rowItem.embedWidget.focus_set()   # 弹窗之后需手动取回焦点
+                        .format(fs=font_name_style, c=char_count))
 
-        rowItem.embed.set(checked)  # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
-        self.setRowStatus(rowItem)  # 当内嵌复选框状态变化时，重设置行状态
-        return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
+            if checked is not None:     # 如果弹出过警告
+                rowItem.embedWidget.focus_set() # 弹窗之后需手动取回焦点
+                if checked is False:    # 如果用户选择了否
+                    return 'break'  # 返回break阻止复选框状态改变
 
-    def onSubsetClicked(self, rowItem: RowItem):
+        # 内嵌复选框状态变化后，需要更新行状态，但要等新值生效后再更新
+        self.after_idle(self.setRowStatus, rowItem)
+
+    def onSubsetClicked(self, event: Event, rowItem: RowItem):
         """子集化复选框状态改变"""
-        if str(rowItem.subsetWidget.cget('state')) == 'normal': # 禁用的控件不用响应
-            # 绑定变量此时尚未更新，只有手动设置值，这样才能立刻生效，但因此必须返回break
-            rowItem.subset.set(not rowItem.subset.get())
-            self.setRowStatus(rowItem)    # 当子集复选框状态变化时，重设置行状态
-        return 'break'  # 阻断事件继续传播，否则会导致复选框状态错乱
+        if (not (0 <= event.x <= event.widget.winfo_width() and 0 <= event.y <= event.widget.winfo_height())
+                and str(rowItem.embedWidget.cget('state')) == 'disabled'):  # 禁用的控件和控件区域之外的事件不用响应
+            return
+        self.after_idle(self.setRowStatus, rowItem)
 
-    def onSourceChange(self, rowItem: RowItem):
+    def onSourceChange(self, var_name, index, mode, rowItem: RowItem):
         """文件源组合框内容改变"""
         # 在控件初始化阶段和下拉菜单填写临时值的瞬间都不需要响应
         if rowItem.sourceWidget and rowItem.source.get() not in self.SrcCmbOptions.All:
             self.setRowStatus(rowItem)    # 当文件源变化时，重设置行状态
 
-    def onSourceComboSelect(self, rowItem: RowItem):
+    def onSourceComboSelect(self, event: Event, rowItem: RowItem):
         """文件源组合框选项选择"""
         cmb_src = rowItem.sourceWidget  # 组合框对象
         src_text = cmb_src.getRaw() # 组合框内的文本
@@ -461,7 +462,7 @@ class FontList(ui.WidgetTable):
         if not src_text_new:    # 如果为空，则移走焦点，否则占位符（"<无来源>"）不显示
             cmb_src.master.focus_set()
 
-    def onDestroy(self, event):
+    def onDestroy(self, event: Event):
         """关闭窗口响应，保存列宽配置"""
         if event.widget is not self:
             return None

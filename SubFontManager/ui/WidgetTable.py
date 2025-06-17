@@ -1,6 +1,6 @@
 from typing import Callable
 import tkinter as tk
-from tkinter import ttk, font as tkfont
+from tkinter import ttk, font as tkfont, Event
 from utils import App
 from .ToolTip import ToolTip
 from .Widgets import StyledWidget
@@ -56,19 +56,19 @@ class Header(tk.Frame):
 
     def bind(self, sequence: str = None, func: Callable = None, add: str = None) -> str:
         """绑定事件"""
-        self.label.bind(sequence, lambda e: e.widget.master.event_generate("<Button-1>", x=e.x, y=e.y))
+        self.label.bind(sequence, lambda e: e.widget.master.event_generate(sequence, x=e.x, y=e.y))
         return super().bind(sequence, func, add)
 
     def pack(self, *args, **kwargs):
         self.label.pack()
         super().pack(*args, **kwargs)
 
-    def _onClick(self, event):
+    def _onClick(self, event: Event):
         """点击事件响应，记录坐标"""
         self._cursorX = event.x_root
         self._cursorY = event.y_root
 
-    def _onDrag(self, event):
+    def _onDrag(self, event: Event):
         """拖动事件响应"""
         # tkinter在mac上拖动事件中鼠标坐标可能“乱飞”，所以这里用x_root和点击时坐标的差值来修正它
         event.x = event.x_root - self._cursorX
@@ -114,13 +114,40 @@ class WidgetRow(tk.Frame):
         self.isSep = isSep
 
     def addCell(self, widget: tk.Widget, padx=0, pady=0, columnSpan: int = 1):
-        self.cells.append(WidgetCell(widget, padx, pady, columnSpan))
+        """添加单元格，注意第一个格的高度将决定整个行的高度"""
+        cell = WidgetCell(widget, padx, pady, columnSpan)
+        self.cells.append(cell)
+        if len(self.cells) == 1:
+            # 必须先将cell都pack到row并刷新，才可以让row获得最大尺寸，但cell最终是靠place布局的，这会导致界面闪烁。
+            # 这里先只加入第一个cell，它的pack位置和place位置一样，可以减少错位闪烁，但要求其他cell不能比第一个高。
+            cell.widget.pack(side=tk.LEFT, padx=cell.padx, pady=cell.pady, anchor=tk.W)
+            self.pack(fill=tk.X, expand=True)
+        self._bindCallbackToFirst(cell.widget, '<Button-1>', self.onCellClicked)    # 绑定点击事件(高亮)
 
     def setHighLight(self, highlight: bool = True):
+        """设置行高亮状态"""
         color = self.HIGHLIGHT_COLOR if highlight else StyledWidget.bg
         self.configure(bg=color)
         for cell in self.cells:
             cell.widget.setBackground(color)
+
+    def onCellClicked(self, event: Event):
+        """绑定事件响应，直接传到父控件，即行对象"""
+        self.event_generate('<Button-1>', x=event.x, y=event.y)
+
+    @staticmethod
+    def _bindCallbackToFirst(widget: tk.Widget, sequence: str, callback: Callable):
+        """为控件bind事件和回调函数，但将回调函数添加到回调序列的第一位"""
+        callbacks_tcl = widget.bind(sequence)  # 获取当前回调函数序列，该序列是一个“Tcl命令字符串”
+        if callbacks_tcl:
+            widget.unbind(sequence)
+            widget.bind(sequence, callback)
+            callback_tcl = widget.bind(sequence)  # 获取新的回调函数的Tcl命令
+            widget.unbind(sequence)
+            new_callbacks_tcl = callback_tcl + '\n' + callbacks_tcl  # 连接两个Tcl命令
+            return widget.bind(sequence, new_callbacks_tcl)
+        else:
+            return widget.bind(sequence, callback)
 
 
 class WidgetTable(tk.Frame):
@@ -158,7 +185,7 @@ class WidgetTable(tk.Frame):
         self._scrollableCanvas.bind_all("<MouseWheel>", self.onMouseWheel)  # 绑定鼠标滚轮事件, Windows and macOS
         self._scrollableCanvas.bind_all("<Button-4>", self.onMouseWheel)    # 绑定鼠标滚轮事件, Linux
         self._scrollableCanvas.bind_all("<Button-5>", self.onMouseWheel)    # 绑定鼠标滚轮事件, Linux
-        self._scrollableCanvas.bind("<Button-1>", self.onClick)
+        self._scrollableCanvas.bind("<Button-1>", self.onClick) # 点击空白区，取消行高亮
 
         self.bind("<Configure>", self.onResize)
         self.columnconfigure(0, weight=1)
@@ -191,50 +218,20 @@ class WidgetTable(tk.Frame):
         header.minWidth = max(round(minWidth * App.dpiScale), Header.AdjusterWidth)
         header.weight = 0 if width else weight
         header.sortKey = sortKey
-        header.bind("<Button-1>", self.onHeaderClick)   # 绑定列头点击排序函数
+        header.bind("<ButtonRelease-1>", self.onHeaderClick)    # 绑定列头点击排序函数
         # 通过pack方法，让headerBar Frame自适应控件的尺寸，因为place方法无法自适应，
         # 当place覆盖pack的布局时，仍会保留其控件尺寸
         header.pack(side=tk.LEFT)
         self._headers.append(header)
         return header
 
-    @staticmethod
-    def _bindCallbackToFirst(widget: tk.Widget, sequence: str, callback: Callable):
-        """为控件bind事件和回调函数，但将回调函数添加到回调序列的第一位"""
-        callbacks_tcl = widget.bind(sequence)   # 获取当前回调函数序列，该序列是一个“Tcl命令字符串”
-        if callbacks_tcl:
-            widget.unbind(sequence)
-            widget.bind(sequence, callback)
-            callback_tcl = widget.bind(sequence)    # 获取新的回调函数的Tcl命令
-            widget.unbind(sequence)
-            new_callbacks_tcl = callback_tcl + '\n' + callbacks_tcl # 连接两个Tcl命令
-            return widget.bind(sequence, new_callbacks_tcl)
-        else:
-            return widget.bind(sequence, callback)
-
     def newRow(self) -> WidgetRow:
-        """生成一个新行对象，将行内元素插入到该对象后addRow即可创建新行"""
-        return WidgetRow(self._tableFrame)
-
-    def addRow(self, row: WidgetRow):
-        """添加新行，row中的每一个对象将成为行内的一列"""
-        if not isinstance(row, WidgetRow):
-            raise TypeError('Only WidgetRow type (created by newRow() method) is accepted.')
-
-        if row.cells:
-            # 必须先将cell都pack到row并刷新，才可以让row获得最大尺寸，但cell最终是靠place布局的，这会导致界面闪烁。
-            # 这里先只加入第一个cell，它的pack位置和place位置一样，可以减少错位闪烁，但要求其他cell不能比它高。
-            row.cells[0].widget.pack(side=tk.LEFT, padx=row.cells[0].padx, pady=row.cells[0].pady, anchor=tk.W)
-            for cell in row.cells:
-                # 为每一个控件绑定激活事件，并插入到回调列表第一位，因为现有回调函数可能会返回'break'
-                self._bindCallbackToFirst(cell.widget, '<Button-1>', self.onRowSelect)
-
-        row.pack(fill=tk.X, expand=True)
-        # 为行对象本身也绑定激活事件，因为控件周围可能会有空隙
-        self._bindCallbackToFirst(row, '<Button-1>', self.onRowSelect)
-
+        """向表内添加一个新行并返回行对象，可以将行内元素插入到该行对象"""
+        row = WidgetRow(self._tableFrame)
+        row.bind('<Button-1>', self.onRowSelect)   # 绑定点击事件(高亮)
         self._rows.append(row)
         self._cells.append(row.cells)
+        return row
 
     def addSeparateRow(self, sepText: str = None, indent: int = 0, padx=0, pady=0, lineLength: int = 300):
         """
@@ -271,6 +268,7 @@ class WidgetTable(tk.Frame):
         self._rows.append(sep_row)
 
     def isEmpty(self) -> bool:
+        """列表是否为空"""
         return len(self._rows) == 0
 
     def clearRows(self):
@@ -284,7 +282,7 @@ class WidgetTable(tk.Frame):
         self._rows.clear()
         self._cells.clear()
 
-    def onRowSelect(self, event):
+    def onRowSelect(self, event: Event):
         """行选择响应，高亮行，获取焦点"""
         if self._selectedRow:
             self._selectedRow.setHighLight(False)
@@ -292,14 +290,14 @@ class WidgetTable(tk.Frame):
         self._selectedRow.setHighLight(True)
         self._selectedRow.focus_set()
 
-    def onClick(self, event):
+    def onClick(self, event: Event):
         """点击列表空白处响应，取消行高亮，获取焦点"""
         if self._selectedRow:
             self._selectedRow.setHighLight(False)
             self._selectedRow = None
         self.focus_set()    # 获取焦点，以便让ComboBox等失去焦点
 
-    def onAdjusterMove(self, event) -> int:
+    def onAdjusterMove(self, event: Event) -> int:
         """
         拖动Adjuster时调节列宽度
         :return: 实际移动的距离
@@ -344,7 +342,7 @@ class WidgetTable(tk.Frame):
 
         return width_inc if isRight else -width_inc # 返回实际移动的距离
 
-    def onResize(self, event=None):
+    def onResize(self, event: Event = None):
         """窗口尺寸变化"""
         if self.winfo_width() <= 1: # 没有宽度，说明还未载入界面
             return
@@ -382,7 +380,7 @@ class WidgetTable(tk.Frame):
 
         self._suspendedResizing = False # 标记挂起的重绘已完成
 
-    def onMouseWheel(self, event):
+    def onMouseWheel(self, event: Event):
         """滚轮响应"""
         if self._scrollbar.get() == (0.0, 1.0):
             return
@@ -393,7 +391,7 @@ class WidgetTable(tk.Frame):
         elif event.num == 5:    # Linux scroll down
             self._scrollableCanvas.yview(tk.SCROLL, 1, tk.UNITS)
 
-    def onHeaderClick(self, event):
+    def onHeaderClick(self, event: Event):
         """列标题被点击，执行排序"""
         if not self._rows:
             return
