@@ -74,7 +74,7 @@ class SubStationAlpha:
 
     # 用于分析字幕文本的正则式 ---------
     _inlineContent_ptn = re.compile(r'\{(.+?)}')        # 用于查找行内样式{}的内容
-    _inlineStyle_ptn = re.compile(r'\\\s*r([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
+    _inlineStyle_ptn = re.compile(r'\\\s*r([^\\}]*)')   # 用于查找{}内的\r内容并提取字体名
     _inlineFont_ptn = re.compile(r'\\\s*fn([^\\}]+)')   # 用于查找{}内的\fn内容并提取字体名
     _inlineBold_ptn = re.compile(r'\\\s*b\s*(\d+)')     # 用于查找{}内的\b并提取后面的数字，注意不要跟\bord\blur\be混淆
     _inlineItalic_ptn = re.compile(r'\\\s*i\s*(\d+)')   # 用于查找{}内的\i并提取后面的数字

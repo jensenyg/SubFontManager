@@ -18,7 +18,6 @@ def onDestroy(event):
 
 
 if __name__ == "__main__":
-    App.setDpiAwareness()   # 开启DPI感知
     root = TkinterDnD.Tk()
     # 设置窗口大小和位置
     window_rect = (App.Config.get('General', 'window_x', None),

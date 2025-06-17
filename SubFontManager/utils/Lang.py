@@ -12,13 +12,14 @@ class LanguageDict:
         self.allLangs: dict[str, str] = {self.ENGLISH: ''}  # 语言目录下所有的语言名和文件名映射
 
         lang_dir: str = langDir if langDir else os.path.join(App.getResourcesDirectory(), 'lang')   # 语言文件目录
-        lang_file: str = App.Config.get('General', 'lang', '')  # 语言文件名
+        lang_file: str = App.Config.get('General', 'lang', App.lang).lower()    # 语言文件名，缺省使用系统界面语言
 
         if os.path.exists(lang_dir):
-            for filename in next(os.walk(lang_dir))[2]: # 遍历目录内所有文件
-                if filename[-5:].lower() != '.json':    # 跳过非json文件
+            for filename_ext in next(os.walk(lang_dir))[2]: # 遍历目录内所有文件
+                filename, ext = os.path.splitext(filename_ext)
+                if ext.lower() != '.json':  # 跳过非json文件
                     continue
-                lang_path = os.path.join(lang_dir, filename)
+                lang_path = os.path.join(lang_dir, filename_ext)
                 try:
                     with open(lang_path, 'r', encoding='utf-8') as file:
                         file_str = file.read()
@@ -27,13 +28,13 @@ class LanguageDict:
                     if lang_name is None:   # 不包含语言名，不是合法的语言文件
                         continue
                     self.allLangs[lang_name] = filename
-                    if filename == lang_file:   # 找到当前配置的语言文件
+                    if filename.lower() == lang_file:   # 找到当前配置的语言文件
                         self.name = lang_name
                         self.dict = lang_dict.get('dict', {})
                 except Exception:
                     print(f'Warning: 语言文件 {lang_path} 错误，已忽略.')
 
-        if not self.name:   # 如果每找到当前配置的语言文件，则退回到英语
+        if not self.name:   # 如果没找到当前配置的语言文件，则退回到英语
             self.name = self.ENGLISH
             App.Config.set('General', 'lang', '')
 
