@@ -14,10 +14,14 @@ class SettingsWindow(ui.PopupWindow):
         gap = 10 * App.dpiScale
         height = 0    # 手动统计高度，以便在各种DPI下窗口大小都能自动适应
 
+        # 设置标题栏图标
+        if App.isWindows:   # 设置Windows任务栏和标题栏图标，mac不用设置
+            self.iconbitmap(os.path.join(App.getResourcesDirectory(), 'icon',
+                                         'icon@32.ico' if App.dpiScale > 1 else 'icon@16.ico'))
+
         # 添加图标
-        img_path = os.path.join(App.getResourcesDirectory(), 'icon',
-                                'icon@256.png' if App.dpiScale > 1 else 'icon@128.png')
-        img = tk.PhotoImage(file=img_path)
+        img = tk.PhotoImage(file=os.path.join(App.getResourcesDirectory(), 'icon',
+                                 'icon@256.png' if App.dpiScale > 1 else 'icon@128.png'))
         text = tk.Label(self, image=img)
         text.pack(pady=(gap, 0))
         height += text.winfo_reqheight() + gap

@@ -19,6 +19,14 @@ class MainWindow:
         gapV = 5 * App.dpiScale     # 控件垂直间距
         padding = 5 * App.dpiScale  # 窗口边缘距离
 
+        # 设置窗口标题栏和图标 ---------------
+        root.title(App.name)
+        # tkinter在标题栏图标上只会使用第一个尺寸的版本，如果是16px，在高DPI下就会模糊
+        # 所以这里手动给它在不同DPI下指定不同尺寸的ico文件，让图标更清晰
+        if App.isWindows:   # 设置Windows任务栏和标题栏图标，mac不用设置
+            root.iconbitmap(os.path.join(App.getResourcesDirectory(), 'icon',
+                                         'icon@32.ico' if App.dpiScale > 1 else 'icon@16.ico'))
+
         # 文件打开和保存区 ---------------
         file_frame = ttk.Frame(root)
         file_frame.grid(row=0, padx=2*padding, pady=(2*padding, padding), sticky=tk.EW)

@@ -4,26 +4,40 @@ import sys
 import site
 
 is_macos = sys.platform=='darwin'
-icon_names = {'darwin': 'icon.icns', 'win32': 'icon.ico', 'linux': 'icon.png', 'linux2': 'icon.png'}
+is_win = sys.platform=='win32'
+icon_names = {
+    'darwin': 'icon.icns',
+    'win32': 'icon.ico',
+    'linux': 'icon.png',
+    'linux2': 'icon.png'
+}
 
+# 寻找tkinterdnd2包的位置 -------
 tkdnd_path = None
 for path in site.getsitepackages():
     tkdnd_path = os.path.join(path, 'tkinterdnd2')
-    print(tkdnd_path)
     if os.path.exists(tkdnd_path):
         break
 else:
     raise ImportError("Can not find path to 'tkinterdnd2'.")
 
+datas = [
+    ('lang', 'lang'),
+    (tkdnd_path, 'tkinterdnd2'),
+    ('icon/icon@128.png' if is_macos else 'icon/icon@256.png', 'icon')
+]
+if is_win:  # Win下需要再打包一份图标文件，mac下不需要
+    datas.extend([
+        ('icon/icon.ico', 'icon'),
+        ('icon/icon@16.ico', 'icon'),
+        ('icon/icon@32.ico', 'icon'),
+    ])
+
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[('fontmatch.dll', '.')] if sys.platform == 'win32' else [],
-    datas=[
-        (tkdnd_path, 'tkinterdnd2'),
-        ('icon/icon@128.png' if is_macos else 'icon/icon@256.png', 'icon'),
-        ('lang', 'lang')
-    ],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

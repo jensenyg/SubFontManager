@@ -20,7 +20,7 @@ class App:
         from ctypes import windll
         lang = locale.windows_locale.get(windll.kernel32.GetUserDefaultUILanguage())
         # Windows下，开启DPI感知，可以进行高DPI渲染而不是模糊的图像放大 -----
-        windll.shcore.SetProcessDpiAwareness(1)
+        windll.shcore.SetProcessDpiAwareness(1) # 1的意思是以主显示器DPI为准，未来跨显示器拖动窗口不做响应
         hwnd = windll.user32.GetDesktopWindow() # 创建用户默认窗口
         hdc = windll.user32.GetDC(hwnd)  # 获取屏幕的物理DPI
         dpi = windll.gdi32.GetDeviceCaps(hdc, 88)   # 88 是 LOGPIXELSX

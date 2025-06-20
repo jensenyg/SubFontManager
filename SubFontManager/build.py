@@ -8,7 +8,7 @@ this_parent_dir = os.path.dirname(this_dir) # 当前py文件路径的上级路�
 
 # 编译Cython UU.pyx文件
 print('\nCompiling Cython files...')
-subprocess.run([python, os.path.join(this_dir, 'font/uu_cy/setup.py')])
+subprocess.run([python, os.path.join(this_dir, 'sub/uu_cy/setup.py')])
 
 # 打包整个项目
 print('\nPackaging the whole project...')
