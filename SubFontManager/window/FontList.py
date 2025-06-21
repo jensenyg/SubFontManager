@@ -219,7 +219,7 @@ class FontList(ui.WidgetTable):
                     problematic_font_names.append(name)
 
         if problematic_font_names:
-            answer = messagebox.askyesnocancel(Lang['Reminding'],
+            answer = messagebox.askyesnocancel(Lang['Reminding'],   # 弹窗询问
                 Lang["Fonts {ff} contain multiple styles, but not all of them have been selected for embedding. "
                      "This may cause subtitle display issues, as unembedded styles will still reference the "
                      "embedded styles as their source during playback, resulting in incorrect rendering. "
@@ -227,10 +227,11 @@ class FontList(ui.WidgetTable):
                      .format(ff=f'"{'", "'.join(problematic_font_names)}"'))
             if answer is None:  # 选择取消
                 return False    # 表示操作取消
-            elif answer is True:    # 选择是，把同字体的其他行都勾选上
+            elif answer:    # 选择是，把同字体的其他行都勾选上
                 for name in problematic_font_names:
                     for row_item in row_dict[name]:
-                        row_item.embed.set(True)    # 勾选同字体的其他行
+                        if not row_item.sourceWidget.isBlank:   # 文件源为空的不勾选
+                            row_item.embed.set(True)    # 勾选同字体的其他行
             # else # 选择否，原样不动
 
         # 确定每行的任务类型、文件是否存在，以及文件内是否都包含指定的字体 -------------
@@ -288,16 +289,25 @@ class FontList(ui.WidgetTable):
             messagebox.showerror(Lang['Error'], Lang['No task to execute.'])
             return False    # 表示操作取消
 
-        # 检查大字体的子集化是否勾选 -------------
+        # 检查大字体的子集化是否已勾选 -------------
+        problematic_fonts = [] # 有问题的字体表
         for row_item in row_items:
             if (TaskType.EXTERNAL in row_item.taskType and TaskType.SUBSETTING not in row_item.taskType
-                    and os.path.getsize(row_item.sourceWidget.get()) > self.WARNING_MAX_FONT_SIZE): # 文件过大且不子集化
-                warnings.append(Lang['File source of "{fs}" is large and subsetting is not selected,']
-                                .format(fs=f"{row_item.fontName} {Lang[row_item.styleName]}"))
-        if warnings and not messagebox.askyesno(Lang['Reminding'],
-                '\n'.join(warnings) + '\n' + Lang["embedding them directly may significantly increase the "
-                                                  "file size of subtitle, are you sure you want to proceed?"]):
-            return False    # 表示操作取消
+                    and os.path.getsize(row_item.sourceWidget.get()) > self.WARNING_MAX_FONT_SIZE):  # 文件过大且不子集化
+                problematic_fonts.append(row_item)
+
+        if problematic_fonts:
+            answer = messagebox.askyesnocancel(Lang['Reminding'],   # 弹窗询问
+                Lang["File source of {ff} is large and subsetting is not selected, "
+                     "embedding them directly may significantly increase the file size of subtitle. "
+                     "Do you want to subset the fonts before embedding it?"]
+                     .format(ff=', '.join(f'"{r.fontName} {Lang[r.styleName]}"' for r in problematic_fonts)))
+            if answer is None:  # 选择取消
+                return False    # 表示操作取消
+            elif answer:    # 选择是，把字体的子集化都勾选上
+                for row_item in problematic_fonts:
+                    row_item.subset.set(True)   # 勾字体的子集化复选框
+            # else # 选择否，原样不动
 
         return True
 
