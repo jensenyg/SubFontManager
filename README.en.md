@@ -147,6 +147,12 @@ Tested players include:
 
 There are also exceptions, like Movist (as of v2.11.5).
 
+⚠Note: PotPlayer's default font handling is very strict when it comes to matching embedded fonts.
+Bold and italic styles must be specified precisely, and there is no fallback,
+which can lead to many matching failures.
+It is recommended to go to **Preferences > Subtitles**, and under **Subtitle Settings > Font rendering**,
+select "**GDI - High compatibility**" to resolve this issue.
+
 Some subtitle editors have poor support for attachments and may ignore or remove
 embedded files upon saving.
 

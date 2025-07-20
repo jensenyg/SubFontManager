@@ -135,13 +135,13 @@ class Font:
         """打开字体，返回TTFont"""
         if self.inMemory:
             self._byteStream.seek(0)
-            return TTFont(self._byteStream)
+            return TTFont(self._byteStream, lazy=True)
         if not os.access(self.path, os.R_OK):
             raise Exception(Lang['Unable to read file {p}.'].format(p=self.path))
         if self.inTTC:
             return TTCollection(self.path, lazy=True)[self.index]   # lazy模式，只打开访问过的TTFont
         else:  # ttf、otf
-            return TTFont(self.path)
+            return TTFont(self.path, lazy=True)
 
     def read(self, size: int = None) -> bytes:
         """以二进制方式读取字体数据"""
